@@ -523,9 +523,16 @@ fn theme_context(colour_icons: bool) -> ThemeContext {
     let container = theme.cosmic().background(theme.transparent);
     let ink = container.on.into_format::<u8, u8>();
     let background = container.base.into_format::<u8, u8>();
+    let paleta = crate::applet::tema::paleta();
+    let rgb = |color: cosmic::iced::Color| {
+        let [r, g, b, _] = color.into_rgba8();
+        [r, g, b]
+    };
     ThemeContext {
-        ink: [ink.red, ink.green, ink.blue],
-        background: [background.red, background.green, background.blue],
+        ink: paleta.tinta.map_or([ink.red, ink.green, ink.blue], rgb),
+        background: paleta
+            .fundo
+            .map_or([background.red, background.green, background.blue], rgb),
         icon_theme: cosmic::icon_theme::default(),
         colour_icons,
     }
