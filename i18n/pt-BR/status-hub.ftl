@@ -1,17 +1,36 @@
-app-title = Status Hub
+app-title = Bandeja
 settings = Configurações
+save = Concluir
+no-watcher = Nenhum serviço de bandeja em execução
+connecting = Conectando…
+empty-state = Nenhum aplicativo na bandeja
+
 appearance = Aparência
-colour-icons = Colorir ícones
+colour-icons = Ícones na cor do tema
 hub-side = Posição do botão
 hub-side-left = Esquerda
 hub-side-right = Direita
-tray-icons = Ícones da bandeja
-links = Links
-save = Salvar
-no-watcher = Nenhum status notifier watcher em execução
-connecting = Conectando…
-empty-state = Nenhum aplicativo disponível
-pin-to-panel = Fixar no painel
-link-issues = Problemas
-link-developer = Desenvolvedor
+hub-icon = Ícone do botão
+hub-icon-applet = Bandeja
+hub-icon-grid = Grade
+hub-icon-dots = Reticências
+hub-icon-arrow = Seta
+show-title = Título no popup
+
+behaviour = Comportamento
+left-click = Clique esquerdo
+left-click-auto = Automático
+left-click-activate = Abre o app
+left-click-menu = Abre o menu
+hide-passive = Esconder ícones inativos
+
+tray-icons = Fixados no painel
+
+theme = Tema
+theme-extension = Extensão do MeowSystem
+theme-extension-on = ativa
+theme-extension-off = tema do COSMIC
+
+about = Sobre
 link-repository = Repositório
+link-upstream = Projeto original

@@ -1,12 +1,12 @@
 [package]
-name = "cosmic-ext-applet-status-hub"
+name = "meowsystem-status-hub"
 version = "1.6.0"
 edition = "2024"
 rust-version = "1.93"
 license = "GPL-3.0-only"
-description = "An independent StatusNotifierHost tray applet for the COSMIC desktop"
-repository = "https://github.com/marcelogomes90/cosmic-ext-applet-status-hub"
-homepage = "https://github.com/marcelogomes90/cosmic-ext-applet-status-hub"
+description = "Bandeja: a StatusNotifierHost tray applet for COSMIC, dressed by MeowSystem"
+repository = "https://github.com/vitoriamariadb/meowsystem-status-hub"
+homepage = "https://github.com/vitoriamariadb/meowsystem-status-hub"
 readme = "README.md"
 
 [lib]
@@ -14,11 +14,11 @@ name = "cosmic_ext_applet_status_hub"
 path = "src/lib.rs"
 
 [[bin]]
-name = "cosmic-ext-applet-status-hub"
+name = "meowsystem-status-hub"
 path = "src/main.rs"
 
 [[bin]]
-name = "cosmic-ext-applet-status-hub-dump"
+name = "meowsystem-status-hub-dump"
 path = "src/bin/tray_dump.rs"
 
 [features]
@@ -60,7 +60,7 @@ features = [
 ]
 
 [dev-dependencies]
-cosmic-ext-applet-status-hub = { path = ".", features = ["testkit"] }
+meowsystem-status-hub = { path = ".", features = ["testkit"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "process"] }
 
 [profile.release]

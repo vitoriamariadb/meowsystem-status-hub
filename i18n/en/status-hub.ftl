@@ -1,17 +1,36 @@
-app-title = Status Hub
+app-title = Tray
 settings = Settings
-appearance = Appearance
-colour-icons = Colour icons
-hub-side = Button position
-hub-side-left = Left
-hub-side-right = Right
-tray-icons = Tray icons
-links = Links
-save = Save
+save = Done
 no-watcher = No status notifier watcher is running
 connecting = Connecting…
 empty-state = No apps available
-pin-to-panel = Pin to panel
-link-issues = Issues
-link-developer = Developer
+
+appearance = Appearance
+colour-icons = Icons follow the theme
+hub-side = Button position
+hub-side-left = Left
+hub-side-right = Right
+hub-icon = Button icon
+hub-icon-applet = Tray
+hub-icon-grid = Grid
+hub-icon-dots = Dots
+hub-icon-arrow = Arrow
+show-title = Title in the popup
+
+behaviour = Behaviour
+left-click = Left click
+left-click-auto = Automatic
+left-click-activate = Opens the app
+left-click-menu = Opens the menu
+hide-passive = Hide idle icons
+
+tray-icons = Pinned to the panel
+
+theme = Theme
+theme-extension = MeowSystem extension
+theme-extension-on = active
+theme-extension-off = COSMIC theme
+
+about = About
 link-repository = Repository
+link-upstream = Original project

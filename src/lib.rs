@@ -10,7 +10,7 @@ pub mod links;
 #[cfg(feature = "testkit")]
 pub mod testkit;
 
-pub const APP_ID: &str = "io.github.marcelogomes90.cosmic-ext-applet-status-hub";
+pub const APP_ID: &str = "io.github.meowsystem.Bandeja";
 
 pub fn extend_data_dirs() {
     let current = std::env::var_os("XDG_DATA_DIRS").unwrap_or_default();

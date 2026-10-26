@@ -1,6 +1,5 @@
 pub const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
-pub const ISSUES: &str = concat!(env!("CARGO_PKG_REPOSITORY"), "/issues");
-pub const DEVELOPER: &str = "https://github.com/marcelogomes90";
+pub const UPSTREAM: &str = "https://github.com/marcelogomes90/cosmic-ext-applet-status-hub";
 
 pub async fn open(url: &'static str) {
     match tokio::process::Command::new("xdg-open").arg(url).spawn() {
@@ -19,7 +18,7 @@ mod tests {
 
     #[test]
     fn every_link_points_at_a_secure_github_page() {
-        for url in [REPOSITORY, ISSUES, DEVELOPER] {
+        for url in [REPOSITORY, UPSTREAM] {
             assert!(
                 url.starts_with("https://github.com/"),
                 "{url} is not an https github address"
@@ -28,8 +27,8 @@ mod tests {
     }
 
     #[test]
-    fn the_project_links_follow_the_repository_recorded_in_the_manifest() {
-        assert_eq!(ISSUES, format!("{REPOSITORY}/issues"));
-        assert!(REPOSITORY.starts_with(DEVELOPER));
+    fn o_fork_credita_o_projeto_original() {
+        assert_ne!(REPOSITORY, UPSTREAM);
+        assert!(REPOSITORY.ends_with("/meowsystem-status-hub"));
     }
 }

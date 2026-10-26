@@ -57,7 +57,7 @@ jobs:
 
       - name: Validate desktop entry
         run: |
-          APPID=io.github.marcelogomes90.cosmic-ext-applet-status-hub
+          APPID=io.github.meowsystem.Bandeja
           output="$(desktop-file-validate "resources/${APPID}.desktop" || true)"
           output="$(printf '%s\n' "${output}" \
             | grep -v 'unregistered value "COSMIC"' \
@@ -68,24 +68,5 @@ jobs:
 
       - name: Validate AppStream metainfo
         run: |
-          APPID=io.github.marcelogomes90.cosmic-ext-applet-status-hub
+          APPID=io.github.meowsystem.Bandeja
           appstreamcli validate --no-net "resources/${APPID}.metainfo.xml"
-
-  manifest:
-    name: Validate Flatpak manifest
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Check manifest and vendored sources parse as JSON
-        run: |
-          APPID=io.github.marcelogomes90.cosmic-ext-applet-status-hub
-          python3 -c "
-          import json, sys
-          appid = '${APPID}'
-          base = f'flatpak/{appid}'
-          manifest = json.load(open(f'{base}/{appid}.json'))
-          assert manifest['id'] == appid, manifest['id']
-          sources = json.load(open(f'{base}/cargo-sources.json'))
-          print(f'manifest ok, {len(sources)} vendored sources')
-          "

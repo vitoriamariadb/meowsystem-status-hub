@@ -8,7 +8,7 @@ fn main() -> cosmic::iced::Result {
     cosmic_ext_applet_status_hub::i18n::init();
     tracing::info!(
         version = env!("CARGO_PKG_VERSION"),
-        "starting cosmic-ext-applet-status-hub"
+        "starting meowsystem-status-hub"
     );
 
     cosmic_ext_applet_status_hub::drop_unusable_privileged_socket();

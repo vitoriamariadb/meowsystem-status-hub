@@ -930,26 +930,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cosmic-ext-applet-status-hub"
-version = "1.6.0"
-dependencies = [
- "cosmic-ext-applet-status-hub",
- "cosmic-freedesktop-icons",
- "futures",
- "i18n-embed",
- "i18n-embed-fl",
- "image",
- "libcosmic",
- "resvg",
- "rust-embed",
- "serde",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "zbus",
-]
-
-[[package]]
 name = "cosmic-freedesktop-icons"
 version = "0.4.0"
 source = "git+https://github.com/pop-os/freedesktop-icons#ab4c57b8e416c6af9297cb04d101889896fd9a92"
@@ -2977,6 +2957,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "meowsystem-status-hub"
+version = "1.6.0"
+dependencies = [
+ "cosmic-freedesktop-icons",
+ "futures",
+ "i18n-embed",
+ "i18n-embed-fl",
+ "image",
+ "libcosmic",
+ "meowsystem-status-hub",
+ "resvg",
+ "rust-embed",
+ "serde",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "zbus",
 ]
 
 [[package]]
