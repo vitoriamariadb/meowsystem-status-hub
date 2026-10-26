@@ -3,11 +3,13 @@ pub mod icons;
 pub mod identity;
 pub mod menu_view;
 pub mod message;
+pub mod migracao;
 pub mod order;
 pub mod pins;
 pub mod popup;
 pub mod subscription;
 pub mod symbols;
+pub mod tema;
 pub mod wayland;
 
 use cosmic::Element;
@@ -29,6 +31,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::APP_ID;
+use crate::applet::appearance::Choice as _;
 use crate::applet::icons::{IconCache, TrayIcon, overlay_size};
 use crate::applet::message::Message;
 use crate::applet::wayland::{ActivateRequest, Raise, TokenRequest, WaylandRequest, WaylandUpdate};
@@ -37,8 +40,10 @@ use crate::core::model::{ItemAddress, TraySnapshot, WatcherState};
 use crate::core::{CoreCommand, CoreHandle};
 use crate::{fl, links};
 
-const LINKS: usize = 3;
-const APPEARANCE: usize = 2;
+const APPEARANCE: usize = 4;
+const BEHAVIOUR: usize = 2;
+const THEME: usize = 1;
+const ABOUT: usize = 2;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum PopupState {
@@ -107,11 +112,30 @@ enum PendingTokenAction {
     },
 }
 
+fn neutral_ink(theme: &cosmic::Theme) -> cosmic::iced::Color {
+    tema::paleta()
+        .tinta
+        .unwrap_or_else(|| theme.cosmic().background(theme.transparent).on.into())
+}
+
 fn symbolic_ink() -> cosmic::theme::Svg {
     thread_local! {
         static INK: cosmic::theme::Svg = cosmic::theme::Svg::custom(|theme: &cosmic::Theme| {
             cosmic::iced::widget::svg::Style {
-                color: Some(theme.cosmic().background(theme.transparent).on.into()),
+                color: Some(neutral_ink(theme)),
+            }
+        });
+    }
+
+    INK.with(cosmic::theme::Svg::clone)
+}
+
+/// Títulos de seção: o acento da extensão, ou a tinta de sempre sem ela.
+fn accent_ink() -> cosmic::theme::Svg {
+    thread_local! {
+        static INK: cosmic::theme::Svg = cosmic::theme::Svg::custom(|theme: &cosmic::Theme| {
+            cosmic::iced::widget::svg::Style {
+                color: Some(tema::paleta().acento.unwrap_or_else(|| neutral_ink(theme))),
             }
         });
     }
@@ -123,9 +147,9 @@ fn neutral_ink_style(
     mut style: cosmic::widget::button::Style,
     theme: &cosmic::Theme,
 ) -> cosmic::widget::button::Style {
-    let ink = theme.cosmic().background(theme.transparent).on;
-    style.icon_color = Some(ink.into());
-    style.text_color = Some(ink.into());
+    let ink = neutral_ink(theme);
+    style.icon_color = Some(ink);
+    style.text_color = Some(tema::paleta().texto.unwrap_or(ink));
     style
 }
 
@@ -168,6 +192,7 @@ pub struct StatusHub {
     dragging: Option<crate::core::model::ItemKey>,
     pin_store: pins::PinStore,
     appearance_store: appearance::AppearanceStore,
+    tema: tema::Tema,
     menu: Option<Arc<MenuModel>>,
     menu_origin: MenuOrigin,
     panel_menu: Option<window::Id>,
@@ -276,8 +301,11 @@ impl StatusHub {
         Vec<&crate::core::model::TrayItem>,
         Vec<&crate::core::model::TrayItem>,
     ) {
+        let hide_passive = self.appearance.hide_passive();
         pins::partition_for_panel(
-            &self.snapshot.items,
+            self.snapshot.items.iter().filter(|item| {
+                !(hide_passive && item.status == crate::core::model::ItemStatus::Passive)
+            }),
             pins,
             popup::panel_item_capacity(
                 self.core.applet.suggested_bounds,
@@ -288,12 +316,38 @@ impl StatusHub {
         )
     }
 
+    /// A extensão de tema pode trocar o ícone de um item pelo `Id` dele.
+    fn item_icon(&self, item: &crate::core::model::TrayItem, size: u16) -> Option<TrayIcon> {
+        if let Some(name) = self.tema.icone_do_item(&item.id) {
+            return Some(TrayIcon {
+                primary: icon::from_name(name)
+                    .size(size)
+                    .symbolic(name.ends_with("-symbolic"))
+                    .handle(),
+                overlay: None,
+            });
+        }
+        self.icons
+            .borrow()
+            .item(&item.address, item.generation, size)
+    }
+
+    fn hub_glyph(&self, size: u16) -> icon::Handle {
+        if let Some(name) = self.tema.icone_botao.as_deref() {
+            return icon::from_name(name)
+                .size(size)
+                .symbolic(name.ends_with("-symbolic"))
+                .handle();
+        }
+        match self.appearance.hub_icon().theme_name() {
+            Some(name) => icon::from_name(name).size(size).symbolic(true).handle(),
+            None => symbols::hub(),
+        }
+    }
+
     fn item_button<'a>(&'a self, item: &'a crate::core::model::TrayItem) -> Element<'a, Message> {
         let size = self.item_icon_size();
-        let handle = self
-            .icons
-            .borrow()
-            .item(&item.address, item.generation, size);
+        let handle = self.item_icon(item, size);
 
         let button = match handle {
             Some(handle) => self
@@ -394,7 +448,10 @@ impl StatusHub {
         card: list::ListColumn<'_, Message>,
     ) -> Element<'_, Message> {
         let heading = cosmic::widget::row::with_children(vec![
-            Self::symbol(handle, popup::SECTION_ICON),
+            cosmic::widget::icon(handle)
+                .class(accent_ink())
+                .size(popup::SECTION_ICON)
+                .into(),
             text::heading(title).into(),
         ])
         .align_y(cosmic::iced::Alignment::Center)
@@ -456,6 +513,41 @@ impl StatusHub {
             appearance::HubSide::Left => fl!("hub-side-left"),
             appearance::HubSide::Right => fl!("hub-side-right"),
         }
+    }
+
+    fn hub_icon_label(choice: appearance::HubIcon) -> String {
+        match choice {
+            appearance::HubIcon::Applet => fl!("hub-icon-applet"),
+            appearance::HubIcon::Grid => fl!("hub-icon-grid"),
+            appearance::HubIcon::Dots => fl!("hub-icon-dots"),
+            appearance::HubIcon::Arrow => fl!("hub-icon-arrow"),
+        }
+    }
+
+    fn left_click_label(choice: appearance::LeftClick) -> String {
+        match choice {
+            appearance::LeftClick::Auto => fl!("left-click-auto"),
+            appearance::LeftClick::Activate => fl!("left-click-activate"),
+            appearance::LeftClick::Menu => fl!("left-click-menu"),
+        }
+    }
+
+    fn labels<T: appearance::Choice>(label: fn(T) -> String) -> Vec<String> {
+        T::ALL.iter().copied().map(label).collect()
+    }
+
+    fn status_row<'a>(handle: icon::Handle, label: String, value: String) -> Element<'a, Message> {
+        cosmic::widget::row::with_children(vec![
+            Self::symbol(handle, popup::ROW_ICON),
+            text::body(label)
+                .width(Length::Fill)
+                .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)))
+                .into(),
+            text::caption(value).into(),
+        ])
+        .align_y(cosmic::iced::Alignment::Center)
+        .spacing(cosmic::theme::spacing().space_xs)
+        .into()
     }
 
     fn empty_row<'a>() -> Element<'a, Message> {
@@ -523,9 +615,13 @@ impl StatusHub {
         let body = match self.body {
             PopupBody::Items => self.items_height(),
             PopupBody::Settings => popup::settings_body_height(
-                APPEARANCE,
-                self.settings_rows().len(),
-                LINKS,
+                &[
+                    APPEARANCE,
+                    BEHAVIOUR,
+                    self.settings_rows().len(),
+                    THEME,
+                    ABOUT,
+                ],
                 popup::list_row_spacing(),
                 popup::MARGIN_Y,
             ),
@@ -576,8 +672,10 @@ impl StatusHub {
 
         let title = if showing_settings {
             fl!("settings")
-        } else {
+        } else if self.appearance.show_title() {
             fl!("app-title")
+        } else {
+            String::new()
         };
 
         popup::header(
@@ -636,23 +734,55 @@ impl StatusHub {
         );
         let rows = self.settings_rows();
 
-        let draft_appearance = self.draft_appearance.unwrap_or(self.appearance);
+        let draft = self.draft_appearance.unwrap_or(self.appearance);
         let appearance = Self::settings_section(
             symbols::appearance(),
             fl!("appearance"),
             Self::settings_card()
-                .add(Self::settings_toggle_row(
-                    symbols::droplet(),
-                    fl!("colour-icons"),
-                    draft_appearance.colour_icons(),
-                    Message::ToggleColourIcons,
+                .add(Self::settings_dropdown_row(
+                    symbols::button(),
+                    fl!("hub-icon"),
+                    Self::labels(Self::hub_icon_label),
+                    draft.hub_icon().index(),
+                    Message::SelectHubIcon,
                 ))
                 .add(Self::settings_dropdown_row(
                     symbols::side(),
                     fl!("hub-side"),
-                    appearance::HubSide::ALL.map(Self::hub_side_label).to_vec(),
-                    draft_appearance.hub_side().index(),
+                    Self::labels(Self::hub_side_label),
+                    draft.hub_side().index(),
                     Message::SelectHubSide,
+                ))
+                .add(Self::settings_toggle_row(
+                    symbols::droplet(),
+                    fl!("colour-icons"),
+                    draft.colour_icons(),
+                    Message::ToggleColourIcons,
+                ))
+                .add(Self::settings_toggle_row(
+                    symbols::title(),
+                    fl!("show-title"),
+                    draft.show_title(),
+                    Message::ToggleShowTitle,
+                )),
+        );
+
+        let behaviour = Self::settings_section(
+            symbols::pointer(),
+            fl!("behaviour"),
+            Self::settings_card()
+                .add(Self::settings_dropdown_row(
+                    symbols::mouse(),
+                    fl!("left-click"),
+                    Self::labels(Self::left_click_label),
+                    draft.left_click().index(),
+                    Message::SelectLeftClick,
+                ))
+                .add(Self::settings_toggle_row(
+                    symbols::eye(),
+                    fl!("hide-passive"),
+                    draft.hide_passive(),
+                    Message::ToggleHidePassive,
                 )),
         );
 
@@ -665,30 +795,40 @@ impl StatusHub {
         };
         let tray = Self::settings_section(symbols::grid(), fl!("tray-icons"), card);
 
-        let links = Self::settings_section(
-            symbols::link(),
-            fl!("links"),
+        let theme = Self::settings_section(
+            symbols::palette(),
+            fl!("theme"),
+            Self::settings_card().add(Self::status_row(
+                symbols::palette(),
+                fl!("theme-extension"),
+                if self.tema.vazio() {
+                    fl!("theme-extension-off")
+                } else {
+                    fl!("theme-extension-on")
+                },
+            )),
+        );
+
+        let about = Self::settings_section(
+            symbols::info(),
+            fl!("about"),
             Self::settings_card()
-                .add(Self::link_row(
-                    symbols::bug(),
-                    fl!("link-issues"),
-                    links::ISSUES,
-                ))
-                .add(Self::link_row(
-                    symbols::person(),
-                    fl!("link-developer"),
-                    links::DEVELOPER,
-                ))
                 .add(Self::link_row(
                     symbols::code(),
                     fl!("link-repository"),
                     links::REPOSITORY,
+                ))
+                .add(Self::link_row(
+                    symbols::person(),
+                    fl!("link-upstream"),
+                    links::UPSTREAM,
                 )),
         );
 
-        let list = cosmic::widget::column::with_children(vec![appearance, links, tray])
-            .width(Length::Fill)
-            .spacing(popup::section_spacing());
+        let list =
+            cosmic::widget::column::with_children(vec![appearance, behaviour, tray, theme, about])
+                .width(Length::Fill)
+                .spacing(popup::section_spacing());
 
         popup::settings_list(list, popup::settings_body_max_height(), popup::MARGIN_Y)
     }
@@ -735,9 +875,7 @@ impl StatusHub {
         let label = item.label().to_owned();
         let size = self.item_icon_size().min(popup::SETTINGS_ROW_ICON);
         let handle = self
-            .icons
-            .borrow()
-            .item(&item.address, item.generation, self.item_icon_size())
+            .item_icon(item, self.item_icon_size())
             .unwrap_or_else(|| TrayIcon {
                 primary: icon::from_name("application-default").size(size).handle(),
                 overlay: None,
@@ -1086,7 +1224,7 @@ impl StatusHub {
             return self.close_popup(true);
         }
 
-        let closed_panel_menu = self.close_panel_menu();
+        let closed_panel_menu = self.close_panel_menu().chain(self.reload_theme());
         self.menu_origin = MenuOrigin::Hub;
         self.menu = None;
         self.pending_menu = None;
@@ -1117,11 +1255,9 @@ impl StatusHub {
         match reconcile_surface_closed(id, &mut self.popup_state) {
             ClosedSurface::Tray => {
                 self.body = PopupBody::Items;
-                self.draft = None;
-                self.draft_order = None;
-                self.draft_appearance = None;
-                self.dragging = None;
+                let saved = self.commit_settings();
                 self.forget_menu();
+                return saved;
             }
             ClosedSurface::Unknown => {}
         }
@@ -1139,11 +1275,18 @@ impl StatusHub {
 
     fn on_save_settings(&mut self) -> Task<Message> {
         self.body = PopupBody::Items;
+        let saved = self.commit_settings();
+        self.forget_menu();
+        Task::batch([saved, self.close_popup(true)])
+    }
+
+    /// Fechar o popup por fora também guarda: a escolha feita não se perde por
+    /// um clique fora dele.
+    fn commit_settings(&mut self) -> Task<Message> {
         let draft = self.draft.take();
         let draft_order = self.draft_order.take();
         let draft_appearance = self.draft_appearance.take();
         self.dragging = None;
-        self.forget_menu();
 
         if let Some(draft) = draft
             && draft != self.pins
@@ -1166,7 +1309,18 @@ impl StatusHub {
             Task::none()
         };
 
-        Task::batch([appearance_task, self.close_popup(true)])
+        appearance_task.chain(cosmic::task::message(Message::Relayout))
+    }
+
+    /// Relê a extensão de tema; troca de pack vale no próximo abrir do popup.
+    fn reload_theme(&mut self) -> Task<Message> {
+        let tema = tema::carregar(APP_ID);
+        if tema == self.tema {
+            return Task::none();
+        }
+        tema::vestir(&tema);
+        self.tema = tema;
+        self.refresh_icons(false, true)
     }
 
     fn forget_menu(&mut self) {
@@ -1253,6 +1407,51 @@ impl StatusHub {
         cosmic::task::message(Message::Relayout)
     }
 
+    fn edit_appearance(&mut self, edit: impl FnOnce(&mut appearance::Appearance)) -> Task<Message> {
+        let Some(appearance) = self.draft_appearance.as_mut() else {
+            return Task::none();
+        };
+        let before = *appearance;
+        edit(appearance);
+        if *appearance == before {
+            return Task::none();
+        }
+        cosmic::task::message(Message::Relayout)
+    }
+
+    fn on_context_menu(&mut self, address: ItemAddress) -> Task<Message> {
+        self.menu_origin = if self.panel_slot_of(&address).is_some() {
+            MenuOrigin::Panel
+        } else {
+            MenuOrigin::Hub
+        };
+        self.pending_menu = self
+            .snapshot
+            .items
+            .iter()
+            .find(|item| item.address == address)
+            .and_then(|item| item.menu_path.as_ref().map(|_| address.clone()));
+        self.tray.send(CoreCommand::Context { address });
+        Task::none()
+    }
+
+    fn on_activate(&mut self, address: ItemAddress) -> Task<Message> {
+        let action = self
+            .item_at(&address)
+            .map_or(appearance::PrimaryAction::Activate, |item| {
+                self.appearance
+                    .left_click()
+                    .action(item.item_is_menu, item.activates)
+            });
+        tracing::debug!(item = %address, ?action, "primary click");
+        match action {
+            appearance::PrimaryAction::Activate => {
+                self.request_token(PendingTokenAction::Activate(address))
+            }
+            appearance::PrimaryAction::Menu => self.on_context_menu(address),
+        }
+    }
+
     fn apply_order(&mut self, order: order::Order) -> Task<Message> {
         self.tray
             .send(CoreCommand::SetRemembered(order.into_keys()));
@@ -1330,6 +1529,9 @@ impl cosmic::Application for StatusHub {
 
     fn init(core: Core, tray: Self::Flags) -> (Self, Task<Message>) {
         let snapshot = tray.snapshot();
+        migracao::migrar(APP_ID, pins::CONFIG_VERSION);
+        let tema = tema::carregar(APP_ID);
+        tema::vestir(&tema);
         let pin_store = pins::PinStore::open(APP_ID);
         let pins = pin_store.load();
         let appearance_store = appearance::AppearanceStore::open(APP_ID);
@@ -1350,6 +1552,7 @@ impl cosmic::Application for StatusHub {
                 dragging: None,
                 pin_store,
                 appearance_store,
+                tema,
                 menu: None,
                 menu_origin: MenuOrigin::Hub,
                 panel_menu: None,
@@ -1399,31 +1602,14 @@ impl cosmic::Application for StatusHub {
 
             Message::SurfaceClosed(id) => self.on_surface_closed(id),
 
-            Message::Activate(address) => {
-                tracing::debug!(item = %address, "primary click");
-                self.request_token(PendingTokenAction::Activate(address))
-            }
+            Message::Activate(address) => self.on_activate(address),
 
             Message::SecondaryActivate(address) => {
                 self.tray.send(CoreCommand::Secondary { address });
                 Task::none()
             }
 
-            Message::ContextMenu(address) => {
-                self.menu_origin = if self.panel_slot_of(&address).is_some() {
-                    MenuOrigin::Panel
-                } else {
-                    MenuOrigin::Hub
-                };
-                self.pending_menu = self
-                    .snapshot
-                    .items
-                    .iter()
-                    .find(|item| item.address == address)
-                    .and_then(|item| item.menu_path.as_ref().map(|_| address.clone()));
-                self.tray.send(CoreCommand::Context { address });
-                Task::none()
-            }
+            Message::ContextMenu(address) => self.on_context_menu(address),
 
             Message::RetryIcons(nonce) => {
                 if self.pending_icon_retry != Some(nonce) {
@@ -1494,6 +1680,20 @@ impl cosmic::Application for StatusHub {
 
             Message::SelectHubSide(index) => self.on_hub_side(index),
 
+            Message::SelectHubIcon(index) => match appearance::HubIcon::at(index) {
+                Some(choice) => self.edit_appearance(|a| a.set_hub_icon(choice)),
+                None => Task::none(),
+            },
+
+            Message::SelectLeftClick(index) => match appearance::LeftClick::at(index) {
+                Some(choice) => self.edit_appearance(|a| a.set_left_click(choice)),
+                None => Task::none(),
+            },
+
+            Message::ToggleShowTitle(on) => self.edit_appearance(|a| a.set_show_title(on)),
+
+            Message::ToggleHidePassive(on) => self.edit_appearance(|a| a.set_hide_passive(on)),
+
             Message::OpenLink(url) => cosmic::task::future(async move {
                 links::open(url).await;
                 Message::Relayout
@@ -1508,13 +1708,7 @@ impl cosmic::Application for StatusHub {
 
         let size = self.item_icon_size();
         let hub = self
-            .applet_button(Self::icon_glyph(
-                icon::from_name(popup::PANEL_ICON)
-                    .size(size)
-                    .symbolic(true)
-                    .handle(),
-                size,
-            ))
+            .applet_button(Self::icon_glyph(self.hub_glyph(size), size))
             .on_press(Message::TogglePopup);
 
         let (pinned, _) = self.partition_items(&self.pins);

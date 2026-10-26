@@ -39,12 +39,12 @@ impl Pins {
 }
 
 pub fn partition_for_panel<'a>(
-    items: &'a [TrayItem],
+    items: impl IntoIterator<Item = &'a TrayItem>,
     pins: &Pins,
     panel_capacity: usize,
 ) -> (Vec<&'a TrayItem>, Vec<&'a TrayItem>) {
-    let mut panel = Vec::with_capacity(panel_capacity.min(items.len()));
-    let mut popup = Vec::with_capacity(items.len());
+    let mut panel = Vec::new();
+    let mut popup = Vec::new();
 
     for item in items {
         if pins.contains(&item.key) && panel.len() < panel_capacity {

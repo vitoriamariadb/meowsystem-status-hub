@@ -8,6 +8,7 @@ use cosmic::iced::{Alignment, Border, Color, Length, Limits, Rectangle, Shadow, 
 use cosmic::widget::{autosize, container, divider, flex_row, mouse_area, scrollable, text};
 
 use crate::applet::appearance::HubSide;
+use crate::applet::tema;
 
 pub const SURFACE_WIDTH: u16 = 360;
 const MAX_HEIGHT: u16 = 1080;
@@ -29,8 +30,6 @@ const SECTION_HEADER_SPACING: u16 = 12;
 pub const MARGIN_X: u16 = 16;
 pub const MARGIN_Y: u16 = 12;
 pub const LIST_ROW_INSET: u16 = 16;
-
-pub const PANEL_ICON: &str = "io.github.marcelogomes90.cosmic-ext-applet-status-hub-symbolic";
 
 pub fn header_icon_padding() -> u16 {
     HEADER_CONTROL.saturating_sub(HEADER_ICON) / 2
@@ -171,18 +170,15 @@ pub fn header_height(control: u16, vertical_padding: u16) -> u16 {
     control.saturating_add(vertical_padding.saturating_mul(2))
 }
 
-pub fn settings_body_height(
-    appearance: usize,
-    rows: usize,
-    links: usize,
-    spacing: u16,
-    padding: u16,
-) -> u16 {
-    section_height(appearance.max(1), spacing)
-        .saturating_add(section_spacing())
-        .saturating_add(section_height(links.max(1), spacing))
-        .saturating_add(section_spacing())
-        .saturating_add(section_height(rows.max(1), spacing))
+/// `sections` traz quantas linhas cada seção mostra; seção vazia ainda paga uma linha.
+pub fn settings_body_height(sections: &[usize], spacing: u16, padding: u16) -> u16 {
+    let gaps = u16::try_from(sections.len().saturating_sub(1)).unwrap_or(u16::MAX);
+    sections
+        .iter()
+        .fold(0u16, |total, rows| {
+            total.saturating_add(section_height((*rows).max(1), spacing))
+        })
+        .saturating_add(section_spacing().saturating_mul(gaps))
         .saturating_add(padding.saturating_mul(2))
         .clamp(1, settings_body_max_height())
 }
@@ -272,16 +268,23 @@ fn themed_container<'a, Message: 'static>(
         .style(|theme| {
             let cosmic = theme.cosmic();
             let background = cosmic.background(theme.transparent);
+            let paleta = tema::paleta();
+            let ink = paleta.texto.unwrap_or_else(|| background.on.into());
             cosmic::iced::widget::container::Style {
-                text_color: Some(background.on.into()),
-                background: Some(Color::from(background.base).into()),
+                text_color: Some(ink),
+                background: Some(
+                    paleta
+                        .fundo
+                        .unwrap_or_else(|| background.base.into())
+                        .into(),
+                ),
                 border: Border {
                     radius: cosmic.corner_radii.radius_m.into(),
                     width: 1.0,
-                    color: background.divider.into(),
+                    color: paleta.borda.unwrap_or_else(|| background.divider.into()),
                 },
                 shadow: Shadow::default(),
-                icon_color: Some(background.on.into()),
+                icon_color: Some(paleta.tinta.unwrap_or(ink)),
                 snap: true,
             }
         })
@@ -310,7 +313,12 @@ pub fn selected_item<'a, Message: 'static>(
             let cosmic = theme.cosmic();
             cosmic::iced::widget::container::Style {
                 text_color: None,
-                background: Some(Color::from(cosmic.text_button.hover).into()),
+                background: Some(
+                    tema::paleta()
+                        .destaque
+                        .unwrap_or_else(|| Color::from(cosmic.text_button.hover))
+                        .into(),
+                ),
                 border: Border {
                     radius: cosmic.corner_radii.radius_xl.into(),
                     width: 0.0,
@@ -678,7 +686,7 @@ mod tests {
     #[test]
     fn the_settings_list_is_as_tall_as_the_rows_it_holds() {
         assert_eq!(
-            settings_body_height(2, 3, 2, 4, 12),
+            settings_body_height(&[2, 2, 3], 4, 12),
             section_height(2, 4)
                 + section_spacing()
                 + section_height(2, 4)
@@ -690,15 +698,25 @@ mod tests {
 
     #[test]
     fn the_links_section_is_paid_for_even_when_the_tray_is_empty() {
-        assert!(settings_body_height(1, 0, 3, 4, 12) > settings_body_height(1, 0, 1, 4, 12));
+        assert!(settings_body_height(&[1, 3, 0], 4, 12) > settings_body_height(&[1, 1, 0], 4, 12));
     }
 
     #[test]
     fn every_section_is_measured_by_the_same_row_height() {
         assert_eq!(
-            settings_body_height(1, 1, 1, 4, 12),
+            settings_body_height(&[1, 1, 1], 4, 12),
             3 * section_height(1, 4) + 2 * section_spacing() + 24,
             "the preference row costs no more than any other single row"
+        );
+    }
+
+    #[test]
+    fn cada_secao_nova_soma_a_sua_altura_e_um_espaco() {
+        let tres = settings_body_height(&[4, 2, 3], 4, 12);
+        let cinco = settings_body_height(&[4, 2, 3, 1, 2], 4, 12);
+        assert_eq!(
+            cinco - tres,
+            section_height(1, 4) + section_height(2, 4) + 2 * section_spacing()
         );
     }
 
@@ -744,13 +762,13 @@ mod tests {
 
     #[test]
     fn a_denser_theme_gives_the_same_list_a_shorter_body() {
-        assert!(settings_body_height(1, 4, 3, 4, 12) < settings_body_height(1, 4, 3, 12, 12));
+        assert!(settings_body_height(&[1, 3, 4], 4, 12) < settings_body_height(&[1, 3, 4], 12, 12));
     }
 
     #[test]
     fn many_settings_rows_scroll_inside_a_bounded_popup() {
         assert_eq!(
-            settings_body_height(1, usize::MAX, 3, 4, 12),
+            settings_body_height(&[1, 3, usize::MAX], 4, 12),
             settings_body_max_height()
         );
         assert_eq!(

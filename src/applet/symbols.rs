@@ -15,15 +15,22 @@ macro_rules! bundled {
 
 bundled! {
     appearance => "appearance-symbolic.svg",
-    bug => "bug-symbolic.svg",
+    button => "button-symbolic.svg",
     code => "code-symbolic.svg",
     droplet => "droplet-symbolic.svg",
     empty => "empty-symbolic.svg",
+    eye => "eye-symbolic.svg",
     grid => "grid-symbolic.svg",
     grip => "grip-symbolic.svg",
+    hub => "../io.github.meowsystem.Bandeja-symbolic.svg",
+    info => "info-symbolic.svg",
     link => "link-symbolic.svg",
+    mouse => "mouse-symbolic.svg",
+    palette => "palette-symbolic.svg",
     person => "person-symbolic.svg",
+    pointer => "pointer-symbolic.svg",
     side => "side-symbolic.svg",
+    title => "title-symbolic.svg",
 }
 
 macro_rules! named {
