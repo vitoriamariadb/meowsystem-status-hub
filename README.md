@@ -1,91 +1,72 @@
 <div align="center">
 
-<img src="resources/io.github.marcelogomes90.cosmic-ext-applet-status-hub.svg" width="128" alt="Status Hub icon" />
+<img src="resources/io.github.meowsystem.Bandeja.svg" width="128" alt="Ícone da Bandeja" />
 
-# Status Hub
+# Bandeja
 
-A StatusNotifierItem tray for the [COSMIC](https://system76.com/cosmic) desktop, gathered behind
-a single panel button.
+Os ícones de bandeja (StatusNotifierItem) do [COSMIC](https://system76.com/cosmic) reunidos
+atrás de um botão do painel, vestidos pelo [MeowSystem](https://github.com/vitoriamariadb/MeowSystem).
 
 </div>
 
-The panel shows one button. Clicking it opens a compact popup holding the tray items, wrapping
-them onto additional rows when there are many. Items you reach for often can be pinned beside it,
-so they stay one click away.
+## De onde vem
 
-<img src="resources/screenshots/desktop.png" alt="Status Hub popup open on the COSMIC panel, showing pinned items beside the hub button" />
+A Bandeja é um fork do **[Status Hub](https://github.com/marcelogomes90/cosmic-ext-applet-status-hub)**,
+de **Marcelo Gomes** ([@marcelogomes90](https://github.com/marcelogomes90)). O núcleo da
+bandeja, os menus DBusMenu, o tratamento de ícones e a arquitetura (veja
+[ARCHITECTURE.md](ARCHITECTURE.md)) são trabalho dele. Este fork muda o nome, completa as
+configurações, conserta o clique esquerdo em itens que só têm menu e acrescenta a extensão de
+tema do MeowSystem. A licença continua a do original, GPL-3.0-only ([LICENSE](LICENSE)).
 
-## Features
+## O que faz
 
-- Collects every StatusNotifierItem on the session bus behind one panel button.
-- Pins the items you choose to the panel, remembered between sessions and kept in step across
-  every panel. Pinned items keep their mouse controls and their menu, and the hub's own button
-  sits at whichever end of the strip you pick.
-- Keeps a popup item's menu in the same card, separated from the icons by a divider; menus opened
-  from pinned items are anchored to their panel slot.
-- Ships in English, Brazilian Portuguese, Dutch, French, German, Italian, Russian, Simplified
-  Chinese, Spanish, and Ukrainian.
-- Renders DBusMenu menus, including submenus, checkmarks, radio groups, separators, and menu
-  icons.
-- Resolves icons from icon names, absolute paths, or raw pixmap bytes, with attention and
-  overlay icon support.
-- Lets you choose whether application icons keep their published colours or follow the panel theme.
-  Only neutral monotones and simple duotones are automatically recoloured; coloured artwork and
-  complex outlines stay original. Detected badges and separate overlays keep their colours.
-  Explicit symbolic icons always follow the theme. High-resolution image preparation works in
-  either mode.
-- Uses the standard tray mouse controls: left click activates the application, middle click
-  requests its optional secondary action, and right click opens its menu. Activation requests
-  carry an XDG activation token so the target application can raise its window.
-- Removes an item as soon as its bus owner disappears, so no icon is left stranded when an
-  application exits without unregistering.
-- Applies a timeout and a per-item error budget to every remote call, so one unresponsive
-  application cannot delay another, the popup, or the panel.
-- Follows the panel's anchor, size, and theme, and wraps items onto additional rows as they are
-  added.
+- Um botão no painel no lugar de uma fileira de ícones; um clique abre todos num popup compacto.
+- Fixe ao lado do botão os que você mais usa; arraste para pôr na ordem que quiser.
+- Cada ícone mantém o menu do próprio aplicativo (submenus, marcas, rádio, separadores).
+- Um aplicativo que para de responder não trava o painel nem os outros ícones.
+- Ícone sai junto com o aplicativo e volta quando ele volta.
 
-## Installation
+## Configurações
 
-### Flatpak
+Ficam no próprio popup, no botão de engrenagem, em cinco seções:
 
-Status Hub is available from the official COSMIC Flatpak repository:
+| seção | o que tem |
+| --- | --- |
+| Aparência | ícone do botão, posição do botão, ícones na cor do tema, título no popup |
+| Comportamento | o que o clique esquerdo faz, esconder ícones inativos |
+| Fixados no painel | cada item da bandeja, com chave para fixar e alça para arrastar |
+| Tema | se a extensão do MeowSystem está ativa |
+| Sobre | este repositório e o projeto original |
 
-```sh
-flatpak remote-add --if-not-exists --user cosmic https://apt.pop-os.org/cosmic/cosmic.flatpakrepo
-flatpak install --user cosmic io.github.marcelogomes90.cosmic-ext-applet-status-hub
-```
+A escolha vale ao clicar em «Concluir» ou ao fechar o popup. As chaves e os valores estão em
+[INTEGRACAO.md](INTEGRACAO.md).
 
-### From source
+## Tema
 
-Needs a Rust toolchain and the COSMIC development dependencies.
+Sem nada, a Bandeja segue o tema do COSMIC. Um theme pack pode entregar
+`~/.config/meowsystem/extensoes/io.github.meowsystem.Bandeja/tema.conf` com cores e ícones
+próprios; o contrato está em [INTEGRACAO.md](INTEGRACAO.md#extensão-de-tema).
+
+## Compilar e instalar
+
+Precisa do Rust (edição 2024) e das bibliotecas de desenvolvimento do COSMIC.
 
 ```sh
-just build-release
-just install-user      # ~/.local, no root
-# or
-sudo just install      # /usr
+cargo build --release
+just install-user      # em ~/.local, sem root
 ```
 
-Then add **Status Hub** in Settings → Desktop → Panel → Applets.
+Depois adicione a **Bandeja** em Configurações › Área de trabalho › Painel › Applets.
 
-## Contributing
-
-[ARCHITECTURE.md](ARCHITECTURE.md) explains how the tray core, the lifecycle arbitration, and the
-applet fit together, and why the core carries no iced dependency. Read it before moving code across
-that boundary.
+## Desenvolver
 
 ```sh
-just verify   # fmt, clippy -D warnings, tests, and metadata validation
+just verify   # fmt, clippy -D warnings, testes e validação dos metadados
 ```
 
-### Translating
+As traduções são catálogos [Fluent](https://projectfluent.org) em `i18n/<idioma>/status-hub.ftl`
+(inglês e português do Brasil). Um teste exige que todo catálogo tenha as mesmas chaves do inglês.
 
-Translations are [Fluent](https://projectfluent.org) catalogues under `i18n/<locale>/status-hub.ftl`.
-To add a language, copy `i18n/en/status-hub.ftl` into a new locale directory and translate the
-values — the keys must stay as they are. A test asserts every catalogue carries exactly the same
-keys as the English one, so a drifting translation fails the build rather than shipping as a blank
-label.
+## Licença
 
-## Licence
-
-GPL-3.0-only. See [LICENSE](LICENSE).
+GPL-3.0-only, a mesma do Status Hub. Veja [LICENSE](LICENSE).
