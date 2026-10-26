@@ -1106,7 +1106,7 @@ const SNI_INTERFACE: &str = "org.kde.StatusNotifierItem";
 
 const IDENTIFYING: [&str; 5] = ["Id", "Title", "Status", "IconName", "IconPixmap"];
 
-const PROPERTIES: [&str; 13] = [
+const PROPERTIES: [&str; 14] = [
     "Id",
     "Title",
     "Status",
@@ -1120,6 +1120,7 @@ const PROPERTIES: [&str; 13] = [
     "AttentionIconPixmap",
     "OverlayIconName",
     "OverlayIconPixmap",
+    "ItemIsMenu",
 ];
 
 type Properties = HashMap<String, zbus::zvariant::OwnedValue>;
@@ -1204,6 +1205,8 @@ async fn resolve(connection: &zbus::Connection, address: &ItemAddress) -> Resolv
             menu_path,
             tooltip: take(&mut bulk, "ToolTip"),
             takes_activation_token: announces_activation_token(introspection.as_deref()),
+            item_is_menu: take(&mut bulk, "ItemIsMenu").unwrap_or(false),
+            activates: declares_method(introspection.as_deref(), "Activate").unwrap_or(true),
             icon: Arc::new(IconSource {
                 icon_name: take(&mut bulk, "IconName").unwrap_or_default(),
                 icon_pixmap: take(&mut bulk, "IconPixmap").unwrap_or_default(),
@@ -1234,6 +1237,17 @@ async fn introspect(connection: &zbus::Connection, address: &ItemAddress) -> Opt
 
 fn announces_activation_token(introspection: Option<&str>) -> bool {
     introspection.is_some_and(|xml| xml.contains("ProvideXdgActivationToken"))
+}
+
+/// `Some(declara?)` quando há introspecção da interface SNI; `None` quando não há o que ler.
+fn declares_method(introspection: Option<&str>, method: &str) -> Option<bool> {
+    let interface = introspection?.split(SNI_INTERFACE).nth(1)?;
+    let interface = interface.split("<interface").next().unwrap_or(interface);
+    let quoted = [format!("name=\"{method}\""), format!("name='{method}'")];
+    Some(interface.match_indices("<method").any(|(at, _)| {
+        let tag = interface[at..].split('>').next().unwrap_or_default();
+        quoted.iter().any(|needle| tag.contains(needle.as_str()))
+    }))
 }
 
 fn declared_properties(introspection: Option<&str>) -> std::collections::HashSet<String> {
@@ -1465,5 +1479,56 @@ mod tests {
         assert!(state.request());
         assert!(!state.complete(7).accept);
         assert_eq!(state.last_revision, Some(8));
+    }
+}
+
+#[cfg(test)]
+mod declared_method_tests {
+    use super::declares_method;
+
+    // A forma do Hefesto (libayatana-appindicator) medida na sessão: sem `Activate`.
+    const AYATANA_ITEM: &str = r#"<node>
+  <interface name="org.kde.StatusNotifierItem">
+    <method name="Scroll"><arg name="delta" type="i" direction="in"/></method>
+    <method name="SecondaryActivate"><arg name="x" type="i" direction="in"/></method>
+    <method name="XAyatanaSecondaryActivate"><arg name="timestamp" type="u" direction="in"/></method>
+    <property name="Menu" type="o" access="read"/>
+  </interface>
+</node>"#;
+
+    const QT_ITEM: &str = r"<node>
+  <interface name='org.kde.StatusNotifierItem'>
+    <method name='Activate'><arg name='x' type='i' direction='in'/></method>
+    <method name='ContextMenu'/>
+  </interface>
+</node>";
+
+    #[test]
+    fn um_item_ayatana_nao_declara_activate_mesmo_tendo_secondary_activate() {
+        assert_eq!(declares_method(Some(AYATANA_ITEM), "Activate"), Some(false));
+        assert_eq!(
+            declares_method(Some(AYATANA_ITEM), "SecondaryActivate"),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn aspas_simples_tambem_contam() {
+        assert_eq!(declares_method(Some(QT_ITEM), "Activate"), Some(true));
+    }
+
+    #[test]
+    fn sem_introspeccao_nao_ha_o_que_afirmar() {
+        assert_eq!(declares_method(None, "Activate"), None);
+        assert_eq!(declares_method(Some("<node></node>"), "Activate"), None);
+    }
+
+    #[test]
+    fn um_metodo_de_outra_interface_nao_conta() {
+        let xml = r#"<node>
+  <interface name="org.example.Other"><method name="Activate"/></interface>
+  <interface name="org.kde.StatusNotifierItem"><method name="Scroll"/></interface>
+</node>"#;
+        assert_eq!(declares_method(Some(xml), "Activate"), Some(false));
     }
 }

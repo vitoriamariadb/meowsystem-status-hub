@@ -229,6 +229,10 @@ pub struct TrayItem {
     pub tooltip: Option<ToolTip>,
     pub icon: Arc<IconSource>,
     pub takes_activation_token: bool,
+    /// `ItemIsMenu`: o item só sabe mostrar menu, e o clique esquerdo deve abri-lo.
+    pub item_is_menu: bool,
+    /// A introspecção declara `Activate`; sem introspecção, presume-se que sim.
+    pub activates: bool,
 }
 
 impl TrayItem {

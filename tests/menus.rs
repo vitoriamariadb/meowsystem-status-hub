@@ -466,3 +466,44 @@ async fn a_middle_click_requests_the_secondary_action() {
     })
     .await;
 }
+
+#[tokio::test]
+async fn o_snapshot_conta_ao_applet_que_o_item_so_tem_menu() {
+    let bus = PrivateBus::start().unwrap();
+    let watcher_connection = bus.connect().await.unwrap();
+    FakeWatcher::serve(&watcher_connection).await.unwrap();
+
+    let item_connection = bus.connect().await.unwrap();
+    let _menu_only = ItemHandle::publish(
+        &item_connection,
+        "item-is-menu",
+        ItemBehaviour::ItemIsMenu,
+        None,
+    )
+    .await
+    .unwrap();
+    let other_connection = bus.connect().await.unwrap();
+    let _normal = ItemHandle::publish(&other_connection, "normal", ItemBehaviour::Normal, None)
+        .await
+        .unwrap();
+
+    let (handle, _join) = core::spawn_on(
+        &tokio::runtime::Handle::current(),
+        MemoryOrderStore::default(),
+        bus.connect().await.unwrap(),
+    );
+    let mut snapshots = handle.subscribe();
+    let snapshot = wait_for(&mut snapshots, "both items resolved", |s| {
+        ["item-is-menu", "normal"]
+            .iter()
+            .all(|id| s.items.iter().any(|item| item.id == *id))
+    })
+    .await;
+
+    let flags = |id: &str| {
+        let item = snapshot.items.iter().find(|item| item.id == id).unwrap();
+        (item.item_is_menu, item.activates)
+    };
+    assert_eq!(flags("item-is-menu"), (true, true));
+    assert_eq!(flags("normal"), (false, true));
+}

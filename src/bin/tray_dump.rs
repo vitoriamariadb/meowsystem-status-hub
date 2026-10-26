@@ -34,11 +34,14 @@ fn print_snapshot(snapshot: &core::model::TraySnapshot) {
     );
     for (position, item) in snapshot.items.iter().enumerate() {
         println!(
-            "{position:>2}. {key:<28} {state:<10} seq={seq:<3} gen={gen:<3} menu={menu} {address}",
+            "{position:>2}. {key:<28} {state:<10} seq={seq:<3} gen={gen:<3} status={status:?} item_is_menu={item_is_menu} activate={activates} menu={menu} {address}",
             key = item.key.to_string(),
             state = item.state.to_string(),
             seq = item.discovery_seq.0,
             gen = item.generation.0,
+            status = item.status,
+            item_is_menu = item.item_is_menu,
+            activates = item.activates,
             menu = item.menu_path.as_ref().map_or("-", |p| p.as_str()),
             address = item.address,
         );

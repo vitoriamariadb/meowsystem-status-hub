@@ -21,6 +21,8 @@ pub struct ResolvedProps {
     pub tooltip: Option<ToolTip>,
     pub icon: Arc<IconSource>,
     pub takes_activation_token: bool,
+    pub item_is_menu: bool,
+    pub activates: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -306,6 +308,8 @@ impl Registry {
                 tooltip: entry.props.tooltip.clone(),
                 icon: entry.props.icon.clone(),
                 takes_activation_token: entry.props.takes_activation_token,
+                item_is_menu: entry.props.item_is_menu,
+                activates: entry.props.activates,
             })
             .collect();
 
