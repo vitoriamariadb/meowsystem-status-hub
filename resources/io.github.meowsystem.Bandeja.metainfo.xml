@@ -25,6 +25,11 @@
   </provides>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.7.0" date="2026-10-28">
+      <description>
+        <p>O popup é uma linha só: os ícones da bandeja à esquerda e a engrenagem à direita, separada por um traço vertical, sem título. O acento do pack pinta a engrenagem e o realce dos ícones ao passar o mouse.</p>
+      </description>
+    </release>
     <release version="1.6.0" date="2026-10-26">
       <description>
         <p>Primeira versão do fork: nome Bandeja, configurações completas, extensão de tema do MeowSystem e clique esquerdo que abre o menu de itens que só têm menu.</p>
