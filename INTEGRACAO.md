@@ -57,7 +57,6 @@ applet vigia a pasta: mudar um arquivo por fora vale na hora, sem reiniciar nada
 | `colour-icons` | bool | `true` | `true`: ícones monocromáticos seguem a tinta do tema; `false`: cores originais |
 | `hub-side` | `Left` \| `Right` | `Right` | de que lado da fileira fica o botão |
 | `hub-icon` | `Applet` \| `Grid` \| `Dots` \| `Arrow` | `Applet` | ícone do botão (o próprio da Bandeja, ou `view-app-grid-symbolic`, `view-more-horizontal-symbolic`, `pan-down-symbolic` do tema) |
-| `show-title` | bool | `true` | mostra «Bandeja» no cabeçalho do popup |
 | `hide-passive` | bool | `false` | esconde os itens com `Status` `Passive` (o aplicativo diz que não há nada a ver) |
 | `left-click` | `Auto` \| `Activate` \| `Menu` | `Auto` | `Activate` chama `Activate`; `Menu` abre o menu; `Auto` abre o menu quando o item publica `ItemIsMenu` ou não declara `Activate`, e ativa nos outros casos |
 
@@ -92,7 +91,7 @@ Sem extensão, tudo segue o tema do COSMIC. Com ela, o pack põe cores e ícones
 | `borda` | cor | contorno do cartão do popup |
 | `texto` | cor | texto do popup |
 | `destaque` | cor | fundo do item cujo menu está aberto |
-| `acento` | cor | ícones dos títulos de seção nas configurações |
+| `acento` | cor | engrenagem do popup, realce dos ícones da bandeja ao passar o mouse e ícones dos títulos de seção nas configurações |
 | `icone-botao` | nome de ícone | ícone do botão no painel; vence a preferência `hub-icon` |
 | `icone.<Id>` | nome de ícone | troca o ícone do item cujo `Id` é `<Id>` (no popup, no painel e nas configurações) |
 

@@ -1,8 +1,5 @@
-app-title = Bandeja
 settings = Configurações
 save = Concluir
-no-watcher = Nenhum serviço de bandeja em execução
-connecting = Conectando…
 empty-state = Nenhum aplicativo na bandeja
 
 appearance = Aparência
@@ -15,7 +12,6 @@ hub-icon-applet = Bandeja
 hub-icon-grid = Grade
 hub-icon-dots = Reticências
 hub-icon-arrow = Seta
-show-title = Título no popup
 
 behaviour = Comportamento
 left-click = Clique esquerdo

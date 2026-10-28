@@ -6,7 +6,6 @@ use crate::applet::pins::CONFIG_VERSION;
 pub const COLOUR_ICONS_KEY: &str = "colour-icons";
 pub const HUB_SIDE_KEY: &str = "hub-side";
 pub const HUB_ICON_KEY: &str = "hub-icon";
-pub const SHOW_TITLE_KEY: &str = "show-title";
 pub const HIDE_PASSIVE_KEY: &str = "hide-passive";
 pub const LEFT_CLICK_KEY: &str = "left-click";
 
@@ -105,12 +104,10 @@ impl LeftClick {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[allow(clippy::struct_excessive_bools)]
 pub struct Appearance {
     colour_icons: bool,
     hub_side: HubSide,
     hub_icon: HubIcon,
-    show_title: bool,
     hide_passive: bool,
     left_click: LeftClick,
 }
@@ -121,7 +118,6 @@ impl Default for Appearance {
             colour_icons: true,
             hub_side: HubSide::default(),
             hub_icon: HubIcon::default(),
-            show_title: true,
             hide_passive: false,
             left_click: LeftClick::default(),
         }
@@ -148,7 +144,6 @@ accessors! {
     colour_icons, set_colour_icons: bool;
     hub_side, set_hub_side: HubSide;
     hub_icon, set_hub_icon: HubIcon;
-    show_title, set_show_title: bool;
     hide_passive, set_hide_passive: bool;
     left_click, set_left_click: LeftClick;
 }
@@ -172,11 +167,10 @@ where
 }
 
 impl Appearance {
-    pub const KEYS: [&'static str; 6] = [
+    pub const KEYS: [&'static str; 5] = [
         COLOUR_ICONS_KEY,
         HUB_SIDE_KEY,
         HUB_ICON_KEY,
-        SHOW_TITLE_KEY,
         HIDE_PASSIVE_KEY,
         LEFT_CLICK_KEY,
     ];
@@ -186,7 +180,6 @@ impl Appearance {
             COLOUR_ICONS_KEY => read_into(config, key, &mut self.colour_icons, errors),
             HUB_SIDE_KEY => read_into(config, key, &mut self.hub_side, errors),
             HUB_ICON_KEY => read_into(config, key, &mut self.hub_icon, errors),
-            SHOW_TITLE_KEY => read_into(config, key, &mut self.show_title, errors),
             HIDE_PASSIVE_KEY => read_into(config, key, &mut self.hide_passive, errors),
             LEFT_CLICK_KEY => read_into(config, key, &mut self.left_click, errors),
             _ => false,
@@ -197,7 +190,6 @@ impl Appearance {
         config.set(COLOUR_ICONS_KEY, self.colour_icons)?;
         config.set(HUB_SIDE_KEY, self.hub_side)?;
         config.set(HUB_ICON_KEY, self.hub_icon)?;
-        config.set(SHOW_TITLE_KEY, self.show_title)?;
         config.set(HIDE_PASSIVE_KEY, self.hide_passive)?;
         config.set(LEFT_CLICK_KEY, self.left_click)
     }
@@ -432,7 +424,6 @@ mod tests {
     fn as_preferencias_novas_nascem_como_o_upstream_se_comportava_ou_melhor() {
         let padrao = Appearance::default();
         assert_eq!(padrao.hub_icon(), HubIcon::Applet);
-        assert!(padrao.show_title());
         assert!(!padrao.hide_passive());
         assert_eq!(padrao.left_click(), LeftClick::Auto);
         assert_eq!(HubIcon::Applet.theme_name(), None);
@@ -449,7 +440,6 @@ mod tests {
         appearance.set_colour_icons(false);
         appearance.set_hub_side(HubSide::Left);
         appearance.set_hub_icon(HubIcon::Dots);
-        appearance.set_show_title(false);
         appearance.set_hide_passive(true);
         appearance.set_left_click(LeftClick::Menu);
 

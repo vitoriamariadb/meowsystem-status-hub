@@ -4,8 +4,8 @@ use cosmic::Element;
 use cosmic::applet::cosmic_panel_config::PanelAnchor;
 use cosmic::iced::advanced::text::{Ellipsize, EllipsizeHeightLimit};
 use cosmic::iced::widget::scrollable::{Direction, Scrollbar};
-use cosmic::iced::{Alignment, Border, Color, Length, Limits, Rectangle, Shadow, Size};
-use cosmic::widget::{autosize, container, divider, flex_row, mouse_area, scrollable, text};
+use cosmic::iced::{Alignment, Border, Color, Length, Limits, Padding, Rectangle, Shadow, Size};
+use cosmic::widget::{Space, autosize, container, divider, flex_row, mouse_area, scrollable, text};
 
 use crate::applet::appearance::HubSide;
 use crate::applet::tema;
@@ -29,6 +29,7 @@ const SECTION_HEADER_SPACING: u16 = 12;
 
 pub const MARGIN_X: u16 = 16;
 pub const MARGIN_Y: u16 = 12;
+pub const ACTION_GAP: u16 = 8;
 pub const LIST_ROW_INSET: u16 = 16;
 
 pub fn header_icon_padding() -> u16 {
@@ -96,11 +97,9 @@ impl GridGeometry {
         item_width: u32,
         item_height: u32,
         spacing: u32,
-        horizontal_padding: u32,
+        usable_width: u32,
         vertical_padding: u32,
     ) -> Self {
-        let usable_width =
-            u32::from(SURFACE_WIDTH).saturating_sub(horizontal_padding.saturating_mul(2));
         let columns_at_limit = usable_width
             .saturating_add(spacing)
             .checked_div(item_width.saturating_add(spacing).max(1))
@@ -237,24 +236,70 @@ pub fn panel_slot_rect(
     }
 }
 
-pub fn item_grid<'a, Message: 'static + Clone>(
-    items: impl IntoIterator<Item = Element<'a, Message>>,
+pub fn action_column() -> u16 {
+    ACTION_GAP
+        .saturating_mul(2)
+        .saturating_add(separator_height())
+        .saturating_add(HEADER_CONTROL)
+        .saturating_add(MARGIN_X)
+}
+
+pub fn tray_grid_width(leading: u16) -> u16 {
+    SURFACE_WIDTH
+        .saturating_sub(leading)
+        .saturating_sub(action_column())
+}
+
+pub fn tray_row_height(grid: u16) -> u16 {
+    grid.max(header_height(HEADER_CONTROL, MARGIN_Y))
+        .min(MAX_HEIGHT)
+}
+
+pub fn tray_row<'a, Message: 'static + Clone>(
+    items: Vec<Element<'a, Message>>,
+    action: Element<'a, Message>,
     spacing: u16,
     height: u16,
-    horizontal_padding: u16,
+    leading: u16,
 ) -> Element<'a, Message> {
-    let grid = flex_row(items.into_iter().collect())
-        .spacing(spacing)
-        .align_items(Alignment::Center)
-        .justify_items(Alignment::Start);
+    let mut children: Vec<Element<'a, Message>> = Vec::with_capacity(3);
+    if items.is_empty() {
+        children.push(Space::new().width(Length::Fill).into());
+    } else {
+        let grid = flex_row(items)
+            .spacing(spacing)
+            .align_items(Alignment::Center)
+            .justify_items(Alignment::Start);
+        children.push(
+            container(grid)
+                .width(Length::Fill)
+                .align_x(Alignment::Start)
+                .align_y(Alignment::Center)
+                .into(),
+        );
+        children.push(
+            container(divider::vertical::default())
+                .height(Length::Fixed(f32::from(HEADER_CONTROL)))
+                .into(),
+        );
+    }
+    children.push(action);
 
-    container(grid)
-        .width(Length::Fill)
-        .height(Length::Fixed(f32::from(height)))
-        .padding([MARGIN_Y, horizontal_padding])
-        .align_x(Alignment::Center)
-        .align_y(Alignment::Center)
-        .into()
+    container(
+        cosmic::widget::row::with_children(children)
+            .spacing(ACTION_GAP)
+            .align_y(Alignment::Center),
+    )
+    .width(Length::Fill)
+    .height(Length::Fixed(f32::from(height)))
+    .padding(Padding {
+        top: f32::from(MARGIN_Y),
+        right: f32::from(MARGIN_X),
+        bottom: f32::from(MARGIN_Y),
+        left: f32::from(leading),
+    })
+    .align_y(Alignment::Center)
+    .into()
 }
 
 fn themed_container<'a, Message: 'static>(
@@ -288,20 +333,6 @@ fn themed_container<'a, Message: 'static>(
                 snap: true,
             }
         })
-        .into()
-}
-
-fn fixed_body<'a, Message: 'static>(
-    content: impl Into<Element<'a, Message>>,
-    height: u16,
-    vertical_padding: u16,
-) -> Element<'a, Message> {
-    container(content)
-        .width(Length::Fill)
-        .height(Length::Fixed(f32::from(height)))
-        .padding([vertical_padding, MARGIN_X])
-        .align_x(Alignment::Center)
-        .align_y(Alignment::Center)
         .into()
 }
 
@@ -457,19 +488,6 @@ pub fn panel_surface<'a, Message: 'static>(
         .into()
 }
 
-pub fn notice_height(row: u16) -> u16 {
-    row.saturating_add(MARGIN_Y.saturating_mul(2))
-        .min(MAX_HEIGHT)
-}
-
-pub fn notice<'a, Message: 'static>(message: String, height: u16) -> Element<'a, Message> {
-    let message = text::body(message)
-        .center()
-        .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(2)));
-
-    fixed_body(message, height, MARGIN_Y)
-}
-
 pub fn settings_list<'a, Message: 'static>(
     list: impl Into<Element<'a, Message>>,
     max_height: u16,
@@ -494,13 +512,16 @@ pub fn menu_comes_first(anchor: PanelAnchor) -> bool {
 }
 
 pub fn hub_surface<'a, Message: 'static>(
-    header: Element<'a, Message>,
+    header: Option<Element<'a, Message>>,
     body: Element<'a, Message>,
     menu: Option<Element<'a, Message>>,
     layout: HubLayout,
     anchor: PanelAnchor,
 ) -> Element<'a, Message> {
-    let hub = vec![header, separator(), body];
+    let hub = match header {
+        Some(header) => vec![header, separator(), body],
+        None => vec![body],
+    };
     let children = match menu {
         Some(menu) => {
             let menu = container(
@@ -561,7 +582,7 @@ mod tests {
 
     #[test]
     fn one_item_uses_only_one_row() {
-        let geometry = GridGeometry::calculate(1, 48, 40, 8, 16, 12);
+        let geometry = GridGeometry::calculate(1, 48, 40, 8, 328, 12);
 
         assert_eq!(geometry.height, 64);
         assert_eq!((geometry.columns, geometry.rows), (1, 1));
@@ -569,7 +590,7 @@ mod tests {
 
     #[test]
     fn items_grow_until_the_width_limit() {
-        let geometry = GridGeometry::calculate(6, 48, 40, 8, 16, 12);
+        let geometry = GridGeometry::calculate(6, 48, 40, 8, 328, 12);
 
         assert_eq!(geometry.height, 64);
         assert_eq!((geometry.columns, geometry.rows), (6, 1));
@@ -577,7 +598,7 @@ mod tests {
 
     #[test]
     fn overflowing_items_wrap_onto_another_row() {
-        let geometry = GridGeometry::calculate(7, 48, 40, 8, 16, 12);
+        let geometry = GridGeometry::calculate(7, 48, 40, 8, 328, 12);
 
         assert_eq!(geometry.height, 112);
         assert_eq!((geometry.columns, geometry.rows), (6, 2));
@@ -585,31 +606,56 @@ mod tests {
 
     #[test]
     fn pinning_an_item_can_drop_the_popup_to_one_row() {
-        let two_rows = GridGeometry::calculate(7, 48, 40, 8, 16, 12);
+        let two_rows = GridGeometry::calculate(7, 48, 40, 8, 328, 12);
         assert_eq!(two_rows.rows, 2);
 
-        let after_pinning_one = GridGeometry::calculate(6, 48, 40, 8, 16, 12);
+        let after_pinning_one = GridGeometry::calculate(6, 48, 40, 8, 328, 12);
         assert_eq!(after_pinning_one.rows, 1);
         assert!(after_pinning_one.height < two_rows.height);
     }
 
     #[test]
-    fn the_empty_state_is_taller_than_the_row_it_replaces() {
-        let row = GridGeometry::calculate(0, 48, 40, 8, 16, 12).height;
-
-        assert_eq!(notice_height(row), row + MARGIN_Y * 2);
-        assert_eq!(notice_height(MAX_HEIGHT), MAX_HEIGHT);
-    }
-
-    #[test]
     fn an_empty_grid_is_still_one_row_tall() {
-        let empty = GridGeometry::calculate(0, 48, 40, 8, 16, 12);
+        let empty = GridGeometry::calculate(0, 48, 40, 8, 328, 12);
 
         assert_eq!(empty.rows, 1);
         assert_eq!(
             empty.height,
-            GridGeometry::calculate(1, 48, 40, 8, 16, 12).height
+            GridGeometry::calculate(1, 48, 40, 8, 328, 12).height
         );
+    }
+
+    #[test]
+    fn the_tray_row_spends_the_whole_width_between_icons_and_the_gear() {
+        assert_eq!(
+            16 + tray_grid_width(16) + action_column(),
+            SURFACE_WIDTH,
+            "inset, icons, gap, bar, gap, gear and margin fill the popup exactly"
+        );
+        assert_eq!(
+            action_column(),
+            ACTION_GAP * 2 + 1 + HEADER_CONTROL + MARGIN_X
+        );
+    }
+
+    #[test]
+    fn the_gear_takes_its_column_from_the_icons() {
+        let full = GridGeometry::calculate(6, 48, 40, 8, 328, 12);
+        let beside_gear = GridGeometry::calculate(6, 48, 40, 8, u32::from(tray_grid_width(16)), 12);
+
+        assert_eq!((full.columns, full.rows), (6, 1));
+        assert_eq!((beside_gear.columns, beside_gear.rows), (5, 2));
+    }
+
+    #[test]
+    fn an_empty_tray_is_still_as_tall_as_the_gear() {
+        assert_eq!(
+            tray_row_height(1),
+            header_height(HEADER_CONTROL, MARGIN_Y),
+            "the gear alone keeps its own row"
+        );
+        assert_eq!(tray_row_height(200), 200);
+        assert_eq!(tray_row_height(u16::MAX), MAX_HEIGHT);
     }
 
     #[test]

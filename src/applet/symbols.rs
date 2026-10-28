@@ -30,7 +30,6 @@ bundled! {
     person => "person-symbolic.svg",
     pointer => "pointer-symbolic.svg",
     side => "side-symbolic.svg",
-    title => "title-symbolic.svg",
 }
 
 macro_rules! named {

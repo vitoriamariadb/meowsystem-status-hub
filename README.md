@@ -32,7 +32,7 @@ Ficam no próprio popup, no botão de engrenagem, em cinco seções:
 
 | seção | o que tem |
 | --- | --- |
-| Aparência | ícone do botão, posição do botão, ícones na cor do tema, título no popup |
+| Aparência | ícone do botão, posição do botão, ícones na cor do tema |
 | Comportamento | o que o clique esquerdo faz, esconder ícones inativos |
 | Fixados no painel | cada item da bandeja, com chave para fixar e alça para arrastar |
 | Tema | se a extensão do MeowSystem está ativa |

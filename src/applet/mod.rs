@@ -36,11 +36,11 @@ use crate::applet::icons::{IconCache, TrayIcon, overlay_size};
 use crate::applet::message::Message;
 use crate::applet::wayland::{ActivateRequest, Raise, TokenRequest, WaylandRequest, WaylandUpdate};
 use crate::core::menu::MenuModel;
-use crate::core::model::{ItemAddress, TraySnapshot, WatcherState};
+use crate::core::model::{ItemAddress, TraySnapshot};
 use crate::core::{CoreCommand, CoreHandle};
 use crate::{fl, links};
 
-const APPEARANCE: usize = 4;
+const APPEARANCE: usize = 3;
 const BEHAVIOUR: usize = 2;
 const THEME: usize = 1;
 const ABOUT: usize = 2;
@@ -153,25 +153,77 @@ fn neutral_ink_style(
     style
 }
 
-fn flat_button() -> cosmic::theme::Button {
+const HOVER_ALPHA: f32 = 0.25;
+const PRESSED_ALPHA: f32 = 0.4;
+
+fn accent_wash(
+    mut style: cosmic::widget::button::Style,
+    alpha: f32,
+) -> cosmic::widget::button::Style {
+    if let Some(mut acento) = tema::paleta().acento {
+        acento.a *= alpha;
+        style.background = Some(cosmic::iced::Background::Color(acento));
+    }
+    style
+}
+
+fn accent_ink_style(
+    mut style: cosmic::widget::button::Style,
+    theme: &cosmic::Theme,
+) -> cosmic::widget::button::Style {
+    style = neutral_ink_style(style, theme);
+    if let Some(acento) = tema::paleta().acento {
+        style.icon_color = Some(acento);
+    }
+    style
+}
+
+fn tray_item_button() -> cosmic::theme::Button {
     cosmic::theme::Button::Custom {
         active: Box::new(|focused, theme| {
-            neutral_ink_style(
+            theme.active(focused, false, &cosmic::theme::Button::AppletIcon)
+        }),
+        disabled: Box::new(|theme| theme.disabled(&cosmic::theme::Button::AppletIcon)),
+        hovered: Box::new(|focused, theme| {
+            accent_wash(
+                theme.hovered(focused, false, &cosmic::theme::Button::AppletIcon),
+                HOVER_ALPHA,
+            )
+        }),
+        pressed: Box::new(|focused, theme| {
+            accent_wash(
+                theme.pressed(focused, false, &cosmic::theme::Button::AppletIcon),
+                PRESSED_ALPHA,
+            )
+        }),
+    }
+}
+
+fn settings_gear_button() -> cosmic::theme::Button {
+    cosmic::theme::Button::Custom {
+        active: Box::new(|focused, theme| {
+            accent_ink_style(
                 theme.active(focused, false, &cosmic::theme::Button::Icon),
                 theme,
             )
         }),
         disabled: Box::new(|theme| theme.disabled(&cosmic::theme::Button::Icon)),
         hovered: Box::new(|focused, theme| {
-            neutral_ink_style(
-                theme.hovered(focused, false, &cosmic::theme::Button::Icon),
-                theme,
+            accent_wash(
+                accent_ink_style(
+                    theme.hovered(focused, false, &cosmic::theme::Button::Icon),
+                    theme,
+                ),
+                HOVER_ALPHA,
             )
         }),
         pressed: Box::new(|focused, theme| {
-            neutral_ink_style(
-                theme.pressed(focused, false, &cosmic::theme::Button::Icon),
-                theme,
+            accent_wash(
+                accent_ink_style(
+                    theme.pressed(focused, false, &cosmic::theme::Button::Icon),
+                    theme,
+                ),
+                PRESSED_ALPHA,
             )
         }),
     }
@@ -283,7 +335,7 @@ impl StatusHub {
             u32::from(item_width),
             u32::from(item_height),
             u32::from(self.tray_spacing()),
-            u32::from(self.grid_inset()),
+            u32::from(popup::tray_grid_width(self.grid_inset())),
             u32::from(popup::MARGIN_Y),
         )
     }
@@ -345,7 +397,11 @@ impl StatusHub {
         }
     }
 
-    fn item_button<'a>(&'a self, item: &'a crate::core::model::TrayItem) -> Element<'a, Message> {
+    fn item_button<'a>(
+        &'a self,
+        item: &'a crate::core::model::TrayItem,
+        in_popup: bool,
+    ) -> Element<'a, Message> {
         let size = self.item_icon_size();
         let handle = self.item_icon(item, size);
 
@@ -356,6 +412,12 @@ impl StatusHub {
             None => self
                 .applet_button(text(item.label().to_owned()))
                 .force_enabled(true),
+        };
+
+        let button = if in_popup {
+            button.class(tray_item_button())
+        } else {
+            button
         };
 
         let address = item.address.clone();
@@ -627,8 +689,13 @@ impl StatusHub {
             ),
         };
 
-        let header = popup::header_height(popup::HEADER_CONTROL, popup::MARGIN_Y);
-        let separator = popup::separator_height();
+        let (header, separator) = match self.body {
+            PopupBody::Items => (0, 0),
+            PopupBody::Settings => (
+                popup::header_height(popup::HEADER_CONTROL, popup::MARGIN_Y),
+                popup::separator_height(),
+            ),
+        };
         if self.menu.is_some() && self.menu_origin == MenuOrigin::Hub {
             popup::HubLayout::with_menu(header, separator, body, popup::menu_separator_height())
         } else {
@@ -637,54 +704,39 @@ impl StatusHub {
     }
 
     fn items_height(&self) -> u16 {
-        let geometry = self.tray_geometry();
-        let (_, popup_items) = self.partition_items(&self.pins);
-
-        if popup_items.is_empty() {
-            popup::notice_height(geometry.height)
-        } else {
-            geometry.height
-        }
+        popup::tray_row_height(self.tray_geometry().height)
     }
 
     fn header(&self) -> Element<'_, Message> {
-        let showing_settings = self.body == PopupBody::Settings;
-        let control = f32::from(popup::HEADER_CONTROL);
-
-        let action: Element<'_, Message> = if showing_settings {
+        let action =
             cosmic::widget::button::icon(cosmic::widget::icon::from_name("object-select-symbolic"))
                 .class(cosmic::widget::button::ButtonClass::Text)
                 .extra_small()
                 .label(fl!("save"))
                 .padding(popup::LINK_INSET)
                 .spacing(popup::LINK_SPACING)
-                .height(Length::Fixed(control))
+                .height(Length::Fixed(f32::from(popup::HEADER_CONTROL)))
                 .on_press(Message::SaveSettings)
-                .into()
-        } else {
-            let settings = cosmic::widget::button::icon(symbols::settings())
-                .class(flat_button())
-                .padding(popup::header_icon_padding())
-                .width(Length::Fixed(control))
-                .height(Length::Fixed(control));
-            settings.on_press(Message::OpenSettings).into()
-        };
-
-        let title = if showing_settings {
-            fl!("settings")
-        } else if self.appearance.show_title() {
-            fl!("app-title")
-        } else {
-            String::new()
-        };
+                .into();
 
         popup::header(
-            title,
+            fl!("settings"),
             action,
             popup::header_height(popup::HEADER_CONTROL, popup::MARGIN_Y),
             popup::MARGIN_Y,
             self.menu.is_some().then_some(Message::DismissMenu),
         )
+    }
+
+    fn settings_gear<'a>() -> Element<'a, Message> {
+        let control = f32::from(popup::HEADER_CONTROL);
+        cosmic::widget::button::icon(symbols::settings())
+            .class(settings_gear_button())
+            .padding(popup::header_icon_padding())
+            .width(Length::Fixed(control))
+            .height(Length::Fixed(control))
+            .on_press(Message::OpenSettings)
+            .into()
     }
 
     fn popup_body(&self) -> Element<'_, Message> {
@@ -697,30 +749,22 @@ impl StatusHub {
     fn items_body(&self) -> Element<'_, Message> {
         let (_, popup_items) = self.partition_items(&self.pins);
 
-        if popup_items.is_empty() {
-            let message = if self.snapshot.items.is_empty() {
-                match &self.snapshot.watcher {
-                    WatcherState::Unavailable(_) => fl!("no-watcher"),
-                    WatcherState::Connecting => fl!("connecting"),
-                    WatcherState::Connected => fl!("empty-state"),
-                }
-            } else {
-                fl!("empty-state")
-            };
-            return popup::notice(message, self.items_height());
+        if !popup_items.is_empty() {
+            self.icons.borrow_mut().refresh(
+                &self.snapshot,
+                self.item_icon_size(),
+                false,
+                self.appearance.colour_icons(),
+            );
         }
-
-        self.icons.borrow_mut().refresh(
-            &self.snapshot,
-            self.item_icon_size(),
-            false,
-            self.appearance.colour_icons(),
-        );
-        let spacing = self.tray_spacing();
-        popup::item_grid(
-            popup_items.into_iter().map(|item| self.item_button(item)),
-            spacing,
-            self.tray_geometry().height,
+        popup::tray_row(
+            popup_items
+                .into_iter()
+                .map(|item| self.item_button(item, true))
+                .collect(),
+            Self::settings_gear(),
+            self.tray_spacing(),
+            self.items_height(),
             self.grid_inset(),
         )
     }
@@ -758,12 +802,6 @@ impl StatusHub {
                     fl!("colour-icons"),
                     draft.colour_icons(),
                     Message::ToggleColourIcons,
-                ))
-                .add(Self::settings_toggle_row(
-                    symbols::title(),
-                    fl!("show-title"),
-                    draft.show_title(),
-                    Message::ToggleShowTitle,
                 )),
         );
 
@@ -1690,8 +1728,6 @@ impl cosmic::Application for StatusHub {
                 None => Task::none(),
             },
 
-            Message::ToggleShowTitle(on) => self.edit_appearance(|a| a.set_show_title(on)),
-
             Message::ToggleHidePassive(on) => self.edit_appearance(|a| a.set_hide_passive(on)),
 
             Message::OpenLink(url) => cosmic::task::future(async move {
@@ -1729,7 +1765,7 @@ impl cosmic::Application for StatusHub {
         );
 
         let hub: Element<'_, Message> = hub.into();
-        let buttons = pinned.into_iter().map(|item| self.item_button(item));
+        let buttons = pinned.into_iter().map(|item| self.item_button(item, false));
         let slots: Vec<Element<'_, Message>> = if self.hub_side().leads() {
             std::iter::once(hub).chain(buttons).collect()
         } else {
@@ -1788,7 +1824,7 @@ impl cosmic::Application for StatusHub {
                 .as_ref()
                 .map(|model| menu_view::view(model, &self.expanded, edges));
             return popup::hub_surface(
-                self.header(),
+                (self.body == PopupBody::Settings).then(|| self.header()),
                 body,
                 menu,
                 self.hub_layout(),

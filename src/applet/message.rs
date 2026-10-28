@@ -28,7 +28,6 @@ pub enum Message {
     SelectHubSide(usize),
     SelectHubIcon(usize),
     SelectLeftClick(usize),
-    ToggleShowTitle(bool),
     ToggleHidePassive(bool),
     DragStart(ItemKey),
     DragOver(ItemKey),

@@ -1,8 +1,5 @@
-app-title = Tray
 settings = Settings
 save = Done
-no-watcher = No status notifier watcher is running
-connecting = Connecting…
 empty-state = No apps available
 
 appearance = Appearance
@@ -15,7 +12,6 @@ hub-icon-applet = Tray
 hub-icon-grid = Grid
 hub-icon-dots = Dots
 hub-icon-arrow = Arrow
-show-title = Title in the popup
 
 behaviour = Behaviour
 left-click = Left click
