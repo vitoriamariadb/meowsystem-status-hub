@@ -25,6 +25,11 @@
   </provides>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.7.1" date="2026-10-29">
+      <description>
+        <p>O popup abre do tamanho dos ícones: a largura acompanha a quantidade deles, o traço e a engrenagem ficam logo depois do último, e com a bandeja vazia só a engrenagem aparece.</p>
+      </description>
+    </release>
     <release version="1.7.0" date="2026-10-28">
       <description>
         <p>O popup é uma linha só: os ícones da bandeja à esquerda e a engrenagem à direita, separada por um traço vertical, sem título. O acento do pack pinta a engrenagem e o realce dos ícones ao passar o mouse.</p>
