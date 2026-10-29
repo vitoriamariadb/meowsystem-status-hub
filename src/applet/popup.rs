@@ -1029,4 +1029,166 @@ mod tests {
             MAX_HEIGHT - layout.height() - menu_separator
         );
     }
+
+    fn nth_child(
+        layout: cosmic::iced::advanced::Layout<'_>,
+        index: usize,
+    ) -> cosmic::iced::advanced::Layout<'_> {
+        layout.children().nth(index).unwrap()
+    }
+
+    struct LaidOutTray {
+        surface: Rectangle,
+        icons: Vec<Rectangle>,
+        gear: Rectangle,
+    }
+
+    fn lay_out_tray(count: usize, item: u16, spacing: u16, leading: u16) -> LaidOutTray {
+        use cosmic::iced::advanced::Layout;
+        use cosmic::iced::advanced::renderer::Headless;
+        use cosmic::iced::advanced::widget::Tree;
+        use cosmic::widget::Space;
+
+        let renderer =
+            cosmic::iced::futures::executor::block_on(<cosmic::Renderer as Headless>::new(
+                cosmic::iced::Font::default(),
+                cosmic::iced::Pixels(14.0),
+                Some("tiny-skia"),
+            ))
+            .expect("tiny-skia lays out without a GPU");
+
+        let item_height = 40;
+        let height = tray_row_height(
+            GridGeometry::calculate(
+                count,
+                u32::from(item),
+                item_height,
+                u32::from(spacing),
+                u32::from(tray_grid_width(leading)),
+                u32::from(MARGIN_Y),
+            )
+            .height,
+        );
+        let items = (0..count)
+            .map(|_| {
+                Space::new()
+                    .width(f32::from(item))
+                    .height(f32::from(u16::try_from(item_height).unwrap()))
+                    .into()
+            })
+            .collect();
+        let gear = Space::new()
+            .width(f32::from(HEADER_CONTROL))
+            .height(f32::from(HEADER_CONTROL))
+            .into();
+        let body = tray_row::<()>(
+            items,
+            gear,
+            spacing,
+            height,
+            leading,
+            tray_icons_width(count, item, spacing, leading),
+        );
+        let mut surface = hub_surface(
+            None,
+            body,
+            None,
+            HubLayout::new(0, 0, height),
+            PanelAnchor::Top,
+            tray_surface_width(count, item, spacing, leading),
+        );
+        let mut tree = Tree::new(&surface);
+        let node = surface.as_widget_mut().layout(
+            &mut tree,
+            &renderer,
+            &Limits::new(
+                Size::ZERO,
+                Size::new(f32::from(SURFACE_WIDTH), f32::from(MAX_HEIGHT)),
+            ),
+        );
+
+        let root = Layout::new(&node);
+        let row = nth_child(nth_child(nth_child(nth_child(root, 0), 0), 0), 0);
+        let children: Vec<Layout<'_>> = row.children().collect();
+        let gear = children.last().unwrap().bounds();
+        let icons = if count == 0 {
+            Vec::new()
+        } else {
+            nth_child(children[0], 0)
+                .children()
+                .map(|icon| icon.bounds())
+                .collect()
+        };
+
+        LaidOutTray {
+            surface: root.bounds(),
+            icons,
+            gear,
+        }
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn the_flex_row_keeps_the_icons_inside_the_width_the_popup_gives_them() {
+        for (item, spacing, leading) in [(48, 8, 16), (51, 6, 16), (40, 3, 4), (64, 11, 0)] {
+            for count in 0..=12 {
+                let tray = lay_out_tray(count, item, spacing, leading);
+                let width = f32::from(tray_surface_width(count, item, spacing, leading));
+                let case = format!("{count} icons of {item} with gap {spacing}, inset {leading}");
+
+                assert_eq!(tray.surface.width, width, "{case}");
+                assert_eq!(
+                    tray.gear.x + tray.gear.width,
+                    width - f32::from(MARGIN_X),
+                    "{case}"
+                );
+                if count == 0 {
+                    assert_eq!(tray.gear.x, f32::from(MARGIN_X), "{case}");
+                    continue;
+                }
+
+                let columns = tray_columns(count, item, spacing, leading);
+                let first_line = tray
+                    .icons
+                    .iter()
+                    .filter(|icon| icon.y == tray.icons[0].y)
+                    .count();
+                let mut lines: Vec<f32> = tray.icons.iter().map(|icon| icon.y).collect();
+                lines.dedup();
+                let right = tray
+                    .icons
+                    .iter()
+                    .map(|icon| icon.x + icon.width)
+                    .fold(0.0, f32::max);
+
+                assert_eq!(first_line, columns, "{case}");
+                assert_eq!(lines.len(), count.div_ceil(columns), "{case}");
+                assert_eq!(tray.icons[0].x, f32::from(leading), "{case}");
+                assert_eq!(
+                    right,
+                    f32::from(leading) + f32::from(tray_icons_width(count, item, spacing, leading)),
+                    "{case}"
+                );
+                assert_eq!(
+                    tray.gear.x - right,
+                    f32::from(ACTION_GAP * 2 + separator_height()),
+                    "{case}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn icons_that_fill_the_grid_to_the_last_pixel_stay_on_one_line() {
+        assert_eq!(
+            tray_icons_width(5, 51, 6, 16),
+            tray_grid_width(16),
+            "five icons of 51 with gaps of 6 add up to the whole grid"
+        );
+        let tray = lay_out_tray(5, 51, 6, 16);
+
+        assert!(tray.icons.iter().all(|icon| icon.y == tray.icons[0].y));
+        assert_eq!(tray.surface.width, f32::from(SURFACE_WIDTH));
+    }
 }
