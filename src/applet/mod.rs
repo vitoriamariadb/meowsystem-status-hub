@@ -340,6 +340,32 @@ impl StatusHub {
         )
     }
 
+    fn tray_item_count(&self) -> usize {
+        self.partition_items(&self.pins).1.len()
+    }
+
+    fn tray_icons_width(&self) -> u16 {
+        popup::tray_icons_width(
+            self.tray_item_count(),
+            self.button_size().0,
+            self.tray_spacing(),
+            self.grid_inset(),
+        )
+    }
+
+    fn hub_width(&self) -> u16 {
+        if self.body == PopupBody::Items && self.menu.is_none() {
+            popup::tray_surface_width(
+                self.tray_item_count(),
+                self.button_size().0,
+                self.tray_spacing(),
+                self.grid_inset(),
+            )
+        } else {
+            popup::SURFACE_WIDTH
+        }
+    }
+
     fn tray_spacing(&self) -> u16 {
         u16::try_from(self.core.applet.spacing)
             .unwrap_or(0)
@@ -766,6 +792,7 @@ impl StatusHub {
             self.tray_spacing(),
             self.items_height(),
             self.grid_inset(),
+            self.tray_icons_width(),
         )
     }
 
@@ -1527,7 +1554,7 @@ impl StatusHub {
         let mut settings = self.core.applet.get_popup_settings(
             parent,
             id,
-            Some((u32::from(popup::SURFACE_WIDTH), u32::from(height))),
+            Some((u32::from(self.hub_width()), u32::from(height))),
             None,
             None,
         );
@@ -1829,6 +1856,7 @@ impl cosmic::Application for StatusHub {
                 menu,
                 self.hub_layout(),
                 self.core.applet.anchor,
+                self.hub_width(),
             );
         }
 

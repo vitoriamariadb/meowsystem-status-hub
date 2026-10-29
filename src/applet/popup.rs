@@ -5,7 +5,7 @@ use cosmic::applet::cosmic_panel_config::PanelAnchor;
 use cosmic::iced::advanced::text::{Ellipsize, EllipsizeHeightLimit};
 use cosmic::iced::widget::scrollable::{Direction, Scrollbar};
 use cosmic::iced::{Alignment, Border, Color, Length, Limits, Padding, Rectangle, Shadow, Size};
-use cosmic::widget::{Space, autosize, container, divider, flex_row, mouse_area, scrollable, text};
+use cosmic::widget::{autosize, container, divider, flex_row, mouse_area, scrollable, text};
 
 use crate::applet::appearance::HubSide;
 use crate::applet::tema;
@@ -250,6 +250,42 @@ pub fn tray_grid_width(leading: u16) -> u16 {
         .saturating_sub(action_column())
 }
 
+pub fn tray_columns(item_count: usize, item_width: u16, spacing: u16, leading: u16) -> usize {
+    GridGeometry::calculate(
+        item_count,
+        u32::from(item_width),
+        0,
+        u32::from(spacing),
+        u32::from(tray_grid_width(leading)),
+        0,
+    )
+    .columns
+}
+
+pub fn tray_icons_width(item_count: usize, item_width: u16, spacing: u16, leading: u16) -> u16 {
+    if item_count == 0 {
+        return 0;
+    }
+    let columns =
+        u32::try_from(tray_columns(item_count, item_width, spacing, leading)).unwrap_or(u32::MAX);
+    let width = columns
+        .saturating_mul(u32::from(item_width))
+        .saturating_add(columns.saturating_sub(1).saturating_mul(u32::from(spacing)));
+    u16::try_from(width).unwrap_or(u16::MAX)
+}
+
+pub fn tray_surface_width(item_count: usize, item_width: u16, spacing: u16, leading: u16) -> u16 {
+    if item_count == 0 {
+        return MARGIN_X
+            .saturating_add(HEADER_CONTROL)
+            .saturating_add(MARGIN_X);
+    }
+    leading
+        .saturating_add(tray_icons_width(item_count, item_width, spacing, leading))
+        .saturating_add(action_column())
+        .min(SURFACE_WIDTH)
+}
+
 pub fn tray_row_height(grid: u16) -> u16 {
     grid.max(header_height(HEADER_CONTROL, MARGIN_Y))
         .min(MAX_HEIGHT)
@@ -261,18 +297,18 @@ pub fn tray_row<'a, Message: 'static + Clone>(
     spacing: u16,
     height: u16,
     leading: u16,
+    icons_width: u16,
 ) -> Element<'a, Message> {
     let mut children: Vec<Element<'a, Message>> = Vec::with_capacity(3);
-    if items.is_empty() {
-        children.push(Space::new().width(Length::Fill).into());
-    } else {
+    let left = if items.is_empty() { MARGIN_X } else { leading };
+    if !items.is_empty() {
         let grid = flex_row(items)
             .spacing(spacing)
             .align_items(Alignment::Center)
             .justify_items(Alignment::Start);
         children.push(
             container(grid)
-                .width(Length::Fill)
+                .width(Length::Fixed(f32::from(icons_width)))
                 .align_x(Alignment::Start)
                 .align_y(Alignment::Center)
                 .into(),
@@ -296,7 +332,7 @@ pub fn tray_row<'a, Message: 'static + Clone>(
         top: f32::from(MARGIN_Y),
         right: f32::from(MARGIN_X),
         bottom: f32::from(MARGIN_Y),
-        left: f32::from(leading),
+        left: f32::from(left),
     })
     .align_y(Alignment::Center)
     .into()
@@ -517,6 +553,7 @@ pub fn hub_surface<'a, Message: 'static>(
     menu: Option<Element<'a, Message>>,
     layout: HubLayout,
     anchor: PanelAnchor,
+    width: u16,
 ) -> Element<'a, Message> {
     let hub = match header {
         Some(header) => vec![header, separator(), body],
@@ -549,7 +586,7 @@ pub fn hub_surface<'a, Message: 'static>(
     autosize::autosize(
         themed_container(
             cosmic::widget::column::with_children(children),
-            Length::Fixed(f32::from(SURFACE_WIDTH)),
+            Length::Fixed(f32::from(width.min(SURFACE_WIDTH))),
             Length::Shrink,
         ),
         TRAY_AUTOSIZE_ID.clone(),
@@ -636,6 +673,52 @@ mod tests {
             action_column(),
             ACTION_GAP * 2 + 1 + HEADER_CONTROL + MARGIN_X
         );
+    }
+
+    #[test]
+    fn one_icon_opens_the_popup_at_the_size_of_the_icon_and_the_gear() {
+        assert_eq!(tray_surface_width(1, 48, 8, 16), 16 + 48 + action_column());
+        assert_eq!(tray_icons_width(1, 48, 8, 16), 48);
+    }
+
+    #[test]
+    fn the_popup_grows_by_one_icon_and_one_gap_per_icon() {
+        let one = tray_surface_width(1, 48, 8, 16);
+        let three = tray_surface_width(3, 48, 8, 16);
+
+        assert_eq!(three - one, 2 * (48 + 8));
+        assert_eq!(tray_icons_width(3, 48, 8, 16), 3 * 48 + 2 * 8);
+    }
+
+    #[test]
+    fn many_icons_stop_at_the_surface_width_and_wrap() {
+        let wide = tray_surface_width(40, 48, 8, 16);
+
+        assert!(wide <= SURFACE_WIDTH);
+        assert!(wide > SURFACE_WIDTH - 48 - 8);
+        assert_eq!(wide, tray_surface_width(7, 48, 8, 16));
+        assert_eq!(tray_columns(40, 48, 8, 16), 5);
+        assert_eq!(tray_icons_width(40, 48, 8, 16), 5 * 48 + 4 * 8);
+    }
+
+    #[test]
+    fn an_empty_tray_is_only_the_gear() {
+        assert_eq!(tray_icons_width(0, 48, 8, 16), 0);
+        assert_eq!(
+            tray_surface_width(0, 48, 8, 16),
+            MARGIN_X + HEADER_CONTROL + MARGIN_X
+        );
+    }
+
+    #[test]
+    fn the_icons_and_the_gear_never_leave_a_gap_inside_the_popup() {
+        for count in 1..=12 {
+            let width = tray_surface_width(count, 48, 8, 16);
+            let icons = tray_icons_width(count, 48, 8, 16);
+
+            assert_eq!(width, 16 + icons + action_column());
+            assert!(width <= SURFACE_WIDTH);
+        }
     }
 
     #[test]
