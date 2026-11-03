@@ -9,6 +9,8 @@ atrás de um botão do painel, vestidos pelo [MeowSystem](https://github.com/vit
 
 </div>
 
+<p align="center"><img src="docs/captura.png" alt="O popup da Bandeja com os ícones de bandeja"></p>
+
 ## De onde vem
 
 A Bandeja é um fork do **[Status Hub](https://github.com/marcelogomes90/cosmic-ext-applet-status-hub)**,
