@@ -469,7 +469,7 @@ impl StatusHub {
             .applet_tooltip(
                 area,
                 item.label().to_owned(),
-                self.popup_state != PopupState::Closed,
+                self.any_popup_open(),
                 Message::Surface,
                 None,
             )
@@ -1408,6 +1408,10 @@ impl StatusHub {
         self.tray.send(CoreCommand::CloseMenu);
     }
 
+    fn any_popup_open(&self) -> bool {
+        self.popup_state != PopupState::Closed || self.panel_menu.is_some()
+    }
+
     fn close_panel_menu(&mut self) -> Task<Message> {
         match self.panel_menu.take() {
             Some(menu) => destroy_popup(menu),
@@ -1791,7 +1795,7 @@ impl cosmic::Application for StatusHub {
         let hub = self.core.applet.applet_tooltip(
             hub,
             fl!("tray"),
-            self.popup_state != PopupState::Closed,
+            self.any_popup_open(),
             Message::Surface,
             None,
         );
