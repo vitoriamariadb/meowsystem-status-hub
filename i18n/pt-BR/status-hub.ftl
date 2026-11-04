@@ -1,3 +1,4 @@
+tray = Bandeja
 settings = Configurações
 save = Concluir
 empty-state = Nenhum aplicativo na bandeja

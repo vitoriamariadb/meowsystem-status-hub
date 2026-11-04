@@ -1,3 +1,4 @@
+tray = Tray
 settings = Settings
 save = Done
 empty-state = No apps available

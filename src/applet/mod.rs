@@ -460,7 +460,20 @@ impl StatusHub {
             .on_middle_press(Message::SecondaryActivate(address.clone()))
             .on_right_press(Message::ContextMenu(address));
 
-        area.into()
+        if in_popup {
+            return area.into();
+        }
+
+        self.core
+            .applet
+            .applet_tooltip(
+                area,
+                item.label().to_owned(),
+                self.popup_state != PopupState::Closed,
+                Message::Surface,
+                None,
+            )
+            .into()
     }
 
     fn icon_glyph<'a, M: 'a>(handle: icon::Handle, size: u16) -> Element<'a, M> {
@@ -1661,6 +1674,8 @@ impl cosmic::Application for StatusHub {
         match message {
             Message::Relayout => Task::none(),
 
+            Message::Surface(action) => cosmic::surface::surface_task(action),
+
             Message::Snapshot(snapshot) => self.on_snapshot(snapshot),
 
             Message::TogglePopup => self.on_toggle_popup(),
@@ -1773,6 +1788,13 @@ impl cosmic::Application for StatusHub {
         let hub = self
             .applet_button(Self::icon_glyph(self.hub_glyph(size), size))
             .on_press(Message::TogglePopup);
+        let hub = self.core.applet.applet_tooltip(
+            hub,
+            fl!("tray"),
+            self.popup_state != PopupState::Closed,
+            Message::Surface,
+            None,
+        );
 
         let (pinned, _) = self.partition_items(&self.pins);
         if pinned.is_empty() {

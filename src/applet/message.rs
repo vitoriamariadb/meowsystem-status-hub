@@ -35,4 +35,5 @@ pub enum Message {
     OpenLink(&'static str),
     Wayland(WaylandUpdate),
     Relayout,
+    Surface(cosmic::surface::Action<Message>),
 }
