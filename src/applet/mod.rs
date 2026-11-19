@@ -74,6 +74,7 @@ enum ClosedSurface {
     Tray,
 }
 
+const HUB_ICON_NAME: &str = "io.github.meowsystem.Bandeja-symbolic";
 const REORDER_MIME: &str = "application/x-cosmic-status-hub-item";
 
 struct ReorderData;
@@ -419,7 +420,16 @@ impl StatusHub {
         }
         match self.appearance.hub_icon().theme_name() {
             Some(name) => icon::from_name(name).size(size).symbolic(true).handle(),
-            None => symbols::hub(),
+            None => {
+                let named = icon::from_name(HUB_ICON_NAME)
+                    .size(size)
+                    .symbolic(true)
+                    .fallback(None);
+                match named.clone().path() {
+                    Some(_) => named.handle(),
+                    None => symbols::hub(),
+                }
+            }
         }
     }
 
@@ -1901,6 +1911,14 @@ pub fn run(tray: CoreHandle) -> cosmic::iced::Result {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_hub_button_asks_the_theme_for_the_name_the_default_installs() {
+        let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("resources")
+            .join(format!("{HUB_ICON_NAME}.svg"));
+        assert!(file.is_file(), "{}", file.display());
+    }
 
     fn open(tray: window::Id) -> PopupState {
         PopupState::Open {
