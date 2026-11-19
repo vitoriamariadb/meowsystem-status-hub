@@ -75,6 +75,13 @@ enum ClosedSurface {
 }
 
 const HUB_ICON_NAME: &str = "io.github.meowsystem.Bandeja-symbolic";
+
+fn hub_from_theme(themed: Option<std::path::PathBuf>) -> icon::Handle {
+    match themed {
+        Some(path) => icon::from_path(path),
+        None => symbols::hub(),
+    }
+}
 const REORDER_MIME: &str = "application/x-cosmic-status-hub-item";
 
 struct ReorderData;
@@ -420,16 +427,13 @@ impl StatusHub {
         }
         match self.appearance.hub_icon().theme_name() {
             Some(name) => icon::from_name(name).size(size).symbolic(true).handle(),
-            None => {
-                let named = icon::from_name(HUB_ICON_NAME)
+            None => hub_from_theme(
+                icon::from_name(HUB_ICON_NAME)
                     .size(size)
                     .symbolic(true)
-                    .fallback(None);
-                match named.clone().path() {
-                    Some(_) => named.handle(),
-                    None => symbols::hub(),
-                }
-            }
+                    .fallback(None)
+                    .path(),
+            ),
         }
     }
 
@@ -1918,6 +1922,35 @@ mod tests {
             .join("resources")
             .join(format!("{HUB_ICON_NAME}.svg"));
         assert!(file.is_file(), "{}", file.display());
+    }
+
+    #[test]
+    fn with_the_name_in_the_theme_the_hub_takes_it_and_without_it_the_bundled_one() {
+        let themed = std::path::PathBuf::from(format!("/tema/scalable/apps/{HUB_ICON_NAME}.svg"));
+        let from_theme = hub_from_theme(Some(themed.clone()));
+        assert!(from_theme.symbolic);
+        match from_theme.data {
+            icon::Data::Svg(h) => match h.data() {
+                cosmic::iced::core::svg::Data::Path(p) => assert_eq!(p, &themed),
+                cosmic::iced::core::svg::Data::Bytes(_) => panic!("the theme had the name"),
+            },
+            icon::Data::Image(_) => panic!("svg expected"),
+        }
+        let bundled = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("resources")
+                .join(format!("{HUB_ICON_NAME}.svg")),
+        )
+        .unwrap();
+        let without = hub_from_theme(None);
+        assert!(without.symbolic);
+        match without.data {
+            icon::Data::Svg(h) => match h.data() {
+                cosmic::iced::core::svg::Data::Bytes(b) => assert_eq!(&b[..], &bundled[..]),
+                cosmic::iced::core::svg::Data::Path(p) => panic!("{}", p.display()),
+            },
+            icon::Data::Image(_) => panic!("svg expected"),
+        }
     }
 
     fn open(tray: window::Id) -> PopupState {
